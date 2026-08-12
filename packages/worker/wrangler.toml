@@ -1,0 +1,18 @@
+name = "singbox-meta-manager"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+compatibility_flags = [ "nodejs_compat" ]
+
+# 管理密码和票据签名密钥请在 Cloudflare Dashboard 的 Secrets 中配置
+# ADMIN_PASSWORD: 登录用密码
+# TOKEN_SECRET: 票据签名密钥
+
+[assets]
+directory = "../frontend/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "SINGBOX_DB"
+database_name = "singbox_templates_db"
+database_id = "2dcf607d-3190-4331-b98e-44ee5509da32"

@@ -1,0 +1,12 @@
+{
+  "name": "worker",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.20.5"
+  }
+}

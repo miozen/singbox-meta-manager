@@ -1,0 +1,15 @@
+{
+  "name": "singbox-meta-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sing-box Meta Manager - 云端全栈配置管理中心",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build:frontend": "pnpm --filter frontend build",
+    "deploy:worker": "pnpm --filter worker run deploy",
+    "deploy:cloudflare": "pnpm run build:frontend && pnpm run deploy:worker"
+  }
+}
