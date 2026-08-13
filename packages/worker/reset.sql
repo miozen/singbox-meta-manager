@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS templates (
+DROP TABLE IF EXISTS templates;
+
+CREATE TABLE templates (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   raw_config TEXT NOT NULL,

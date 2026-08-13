@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createTemplate, deleteTemplate, ensureSchema, listTemplates, readTemplate, stripSchema, updateTemplate } from './templates';
 import { issueToken, verifyToken } from './auth';
-import { isNonEmptyString, isValidTemplateId } from '../../shared/src/validators';
+import { ensureJsonString, isNonEmptyString, isValidTemplateId } from '../../shared/src/validators';
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -21,7 +21,21 @@ function jsonError(message: string, status = 400, code = 'BAD_REQUEST') {
   });
 }
 
-async function requireWriteAuth(c: any, next: any) {
+function hasRequiredSecrets(env: Bindings) {
+  return Boolean(env.ADMIN_PASSWORD && env.TOKEN_SECRET);
+}
+
+function validateRawConfig(rawConfig: string) {
+  try {
+    ensureJsonString(rawConfig);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function requireAdminAuth(c: any, next: any) {
+  if (!c.env.TOKEN_SECRET) return jsonError('Server auth is not configured', 500, 'SERVER_CONFIG_ERROR');
   const auth = c.req.header('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   if (!token) return jsonError('Missing token', 401, 'UNAUTHORIZED');
@@ -30,10 +44,19 @@ async function requireWriteAuth(c: any, next: any) {
   await next();
 }
 
-app.get('/api/health', (c) => c.json({ ok: true }));
+app.get('/api/health', (c) => c.json({
+  ok: hasRequiredSecrets(c.env),
+  checks: {
+    adminPassword: Boolean(c.env.ADMIN_PASSWORD),
+    tokenSecret: Boolean(c.env.TOKEN_SECRET),
+    database: Boolean(c.env.SINGBOX_DB),
+    assets: Boolean(c.env.ASSETS)
+  }
+}));
 
 app.post('/api/auth/login', async (c) => {
   const body = await c.req.json().catch(() => null) as { password?: string } | null;
+  if (!hasRequiredSecrets(c.env)) return jsonError('Server auth is not configured', 500, 'SERVER_CONFIG_ERROR');
   if (!body?.password) return jsonError('Password is required', 400, 'VALIDATION_ERROR');
   if (!c.env.ADMIN_PASSWORD || body.password !== c.env.ADMIN_PASSWORD) {
     return jsonError('Invalid password', 401, 'UNAUTHORIZED');
@@ -43,18 +66,19 @@ app.post('/api/auth/login', async (c) => {
   return c.json({ token, expiresAt: payload?.exp ?? 0 });
 });
 
-app.get('/api/templates', async (c) => c.json(await listTemplates(c.env.SINGBOX_DB)));
-app.get('/api/templates/:id', async (c) => {
+app.get('/api/templates', requireAdminAuth, async (c) => c.json(await listTemplates(c.env.SINGBOX_DB)));
+app.get('/api/templates/:id', requireAdminAuth, async (c) => {
   const item = await readTemplate(c.env.SINGBOX_DB, c.req.param('id'));
   if (!item) return jsonError('Not found', 404, 'NOT_FOUND');
   return c.json(item);
 });
 
-app.post('/api/templates', requireWriteAuth, async (c) => {
+app.post('/api/templates', requireAdminAuth, async (c) => {
   const body = await c.req.json().catch(() => null) as { id?: string; name?: string; raw_config?: string } | null;
   if (!isValidTemplateId(body?.id) || !isNonEmptyString(body?.name) || !isNonEmptyString(body?.raw_config)) {
     return jsonError('Missing or invalid required fields', 400, 'VALIDATION_ERROR');
   }
+  if (!validateRawConfig(body.raw_config)) return jsonError('Template config must be valid JSON', 400, 'VALIDATION_ERROR');
   try {
     await createTemplate(c.env.SINGBOX_DB, body.id, body.name, body.raw_config);
     return c.json({ success: true });
@@ -63,16 +87,17 @@ app.post('/api/templates', requireWriteAuth, async (c) => {
   }
 });
 
-app.put('/api/templates/:id', requireWriteAuth, async (c) => {
+app.put('/api/templates/:id', requireAdminAuth, async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => null) as { name?: string; raw_config?: string } | null;
   if (!isNonEmptyString(body?.name) || !isNonEmptyString(body?.raw_config)) return jsonError('Missing required fields', 400, 'VALIDATION_ERROR');
+  if (!validateRawConfig(body.raw_config)) return jsonError('Template config must be valid JSON', 400, 'VALIDATION_ERROR');
   const result = await updateTemplate(c.env.SINGBOX_DB, id, body.name, body.raw_config);
   if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
   return c.json({ success: true });
 });
 
-app.delete('/api/templates/:id', requireWriteAuth, async (c) => {
+app.delete('/api/templates/:id', requireAdminAuth, async (c) => {
   const result = await deleteTemplate(c.env.SINGBOX_DB, c.req.param('id'));
   if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
   return c.json({ success: true });

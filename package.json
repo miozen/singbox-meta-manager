@@ -10,6 +10,8 @@
     "dev:frontend": "pnpm --filter frontend dev",
     "build:frontend": "pnpm --filter frontend build",
     "deploy:worker": "pnpm --filter worker run deploy",
-    "deploy:cloudflare": "pnpm run build:frontend && pnpm run deploy:worker"
+    "cf:build": "pnpm run build:frontend",
+    "cf:deploy": "pnpm run deploy:worker",
+    "cf:publish": "pnpm run cf:build && pnpm run cf:deploy"
   }
 }

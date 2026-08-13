@@ -75,12 +75,12 @@ import TemplateList from './components/TemplateList.vue';
 import ConfirmDialog from './components/ConfirmDialog.vue';
 import ToastHost from './components/ToastHost.vue';
 import type { TemplateListItem } from '@shared/types';
+import { clearAuthToken, hasAuthToken, setAuthToken } from './api/client';
 import { login as loginApi } from './api/auth';
 import { createTemplate, deleteTemplate, fetchTemplate, fetchTemplateList, updateTemplate } from './api/templates';
 
 type ToastType = 'success' | 'error' | 'info';
 
-const tokenKey = 'singbox_meta_token';
 const templates = ref<TemplateListItem[]>([]);
 const currentId = ref('');
 const currentName = ref('');
@@ -91,7 +91,7 @@ const saving = ref(false);
 const syntaxError = ref(false);
 const password = ref('');
 const authLoading = ref(false);
-const isAuthed = ref(Boolean(sessionStorage.getItem(tokenKey)));
+const isAuthed = ref(hasAuthToken());
 const editorRef = ref<any>(null);
 const toasts = ref<{ id: number; message: string; type: ToastType }[]>([]);
 let toastId = 0;
@@ -125,12 +125,6 @@ const showToast = (message: string, type: ToastType = 'info') => {
   setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 3000);
 };
 
-const token = () => sessionStorage.getItem(tokenKey) || '';
-const headers = (json = true) => ({
-  ...(json ? { 'Content-Type': 'application/json' } : {}),
-  ...(token() ? { Authorization: `Bearer ${token()}` } : {})
-});
-
 const refreshList = async () => {
   const data = await fetchTemplateList();
   templates.value = Array.isArray(data) ? data.filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string') : [];
@@ -163,7 +157,7 @@ const login = async () => {
   authLoading.value = true;
   try {
     const data = await loginApi(password.value);
-    sessionStorage.setItem(tokenKey, data.token);
+    setAuthToken(data.token);
     isAuthed.value = true;
     password.value = '';
     await refreshList();
@@ -176,7 +170,7 @@ const login = async () => {
 };
 
 const logout = () => {
-  sessionStorage.removeItem(tokenKey);
+  clearAuthToken();
   isAuthed.value = false;
   templates.value = [];
   currentId.value = '';
@@ -293,13 +287,16 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFo
 .header__meta { display: grid; gap: 6px; min-width: 0; }
 .sidebar__auth, .sidebar__list { padding: 16px; display: grid; gap: 12px; }
 .brand { font-weight: 800; letter-spacing: .08em; }
-.title-input { background: transparent; border: 0; color: #fff; font-weight: 800; font-size: 18px; padding: 0; outline: none; width: 100%; }
+.title-input { background: transparent; border: 0; color: #f8fafc; font-weight: 800; font-size: 18px; padding: 0; outline: none; width: 100%; }
 .muted { color: #94a3b8; font-size: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #0f172a; }
+.header { background: #0f172a; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions .ghost, .actions .primary, .actions .danger { font-size: 13px; line-height: 1.2; padding: 8px 10px; }
 .editor-wrap { position: relative; flex: 1; min-height: 0; }
 .editor, .center, .overlay { position: absolute; inset: 0; }
+.editor { background: #111827; }
 .center, .overlay { display: grid; place-items: center; background: rgba(17,24,39,.92); z-index: 2; }
 .template-item { text-align: left; padding: 12px; border: 1px solid #243041; background: #111827; border-radius: 10px; color: inherit; cursor: pointer; width: 100%; }
 .template-item.active { border-color: #3b82f6; }

@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-03-20"
 compatibility_flags = [ "nodejs_compat" ]
 
-# 管理密码和票据签名密钥请在 Cloudflare Dashboard 的 Secrets 中配置
-# ADMIN_PASSWORD: 登录用密码
-# TOKEN_SECRET: 票据签名密钥
+# Configure these as Cloudflare Worker secrets:
+# ADMIN_PASSWORD: admin login password
+# TOKEN_SECRET: token signing secret
 
 [assets]
 directory = "../frontend/dist"
