@@ -23,8 +23,16 @@
     <main class="main">
       <header class="header">
         <div class="header__meta">
-          <input v-model="currentName" class="title-input" :disabled="!currentId" placeholder="未选择模板" />
-          <div class="muted mono">{{ currentId || '---' }}</div>
+          <label class="name-field">
+            <span>名称</span>
+            <input v-model="currentName" class="title-input" :disabled="!currentId" placeholder="未选择模板" />
+          </label>
+          <div class="template-meta">
+            <span class="muted mono">ID {{ currentId || '---' }}</span>
+            <span v-if="currentId" class="status-pill" :class="syntaxError ? 'error' : 'success'">
+              {{ syntaxError ? '校验失败' : '校验通过' }}
+            </span>
+          </div>
         </div>
         <div class="actions" v-if="isAuthed && currentId">
           <button class="ghost" @click="formatJson">格式化</button>
@@ -117,12 +125,41 @@ const editorOptions = {
   fontSize: 14
 };
 
-const isDirty = computed(() => Boolean(currentId.value) && (rawJson.value !== originalJson.value || currentName.value !== templates.value.find(t => t.id === currentId.value)?.name));
+const defaultTemplateConfig = JSON.stringify({
+  log: {},
+  dns: {},
+  ntp: {},
+  certificate: {},
+  certificate_providers: [],
+  http_clients: [],
+  network_namespaces: [],
+  endpoints: [],
+  inbounds: [],
+  outbounds: [],
+  route: {},
+  services: [],
+  experimental: {}
+}, null, 2);
+
+const isDirty = computed(() => Boolean(currentId.value) && (
+  rawJson.value !== originalJson.value ||
+  currentName.value !== templates.value.find(t => t.id === currentId.value)?.name
+));
 
 const showToast = (message: string, type: ToastType = 'info') => {
   const id = toastId++;
   toasts.value.push({ id, message, type });
   setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 3000);
+};
+
+const stripSchemaForEditor = (rawConfig: string) => {
+  try {
+    const obj = JSON.parse(rawConfig);
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) delete obj.$schema;
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return rawConfig;
+  }
 };
 
 const refreshList = async () => {
@@ -135,10 +172,11 @@ const loadTemplate = async (id: string) => {
   loading.value = true;
   try {
     const data = await fetchTemplate(id);
+    const editorConfig = stripSchemaForEditor(data.raw_config);
     currentId.value = data.id;
     currentName.value = data.name;
-    rawJson.value = data.raw_config;
-    originalJson.value = data.raw_config;
+    rawJson.value = editorConfig;
+    originalJson.value = editorConfig;
   } catch (e) {
     showToast(e instanceof Error ? e.message : '加载失败', 'error');
   } finally {
@@ -192,8 +230,10 @@ const save = async () => {
   if (!isDirty.value || syntaxError.value) return;
   saving.value = true;
   try {
-    await updateTemplate(currentId.value, { name: currentName.value, raw_config: rawJson.value });
-    originalJson.value = rawJson.value;
+    const cleanConfig = stripSchemaForEditor(rawJson.value);
+    await updateTemplate(currentId.value, { name: currentName.value, raw_config: cleanConfig });
+    rawJson.value = cleanConfig;
+    originalJson.value = cleanConfig;
     const template = templates.value.find(t => t.id === currentId.value);
     if (template) template.name = currentName.value;
     showToast('保存成功', 'success');
@@ -222,13 +262,13 @@ const confirmModal = async () => {
   try {
     if (modal.value.type === 'create' || modal.value.type === 'clone') {
       if (!modal.value.id || !modal.value.name) return showToast('ID 和名称不能为空', 'error');
-      if (!/^[a-zA-Z0-9_-]+$/.test(modal.value.id)) return showToast('ID 只能包含英文、数字、-、_', 'error');
+      if (!/^[a-zA-Z0-9_-]+$/.test(modal.value.id)) return showToast('ID 只能包含英文、数字、_ 和 -', 'error');
       if (!(await ensureAuthed())) return;
 
-      let base = '{\n  "$schema": "https://sing-box.sagernet.org/schema.json",\n  "log": { "level": "info" }\n}';
+      let base = defaultTemplateConfig;
       if (modal.value.type === 'clone') {
         const data = await fetchTemplate(modal.value.targetId);
-        base = data.raw_config;
+        base = stripSchemaForEditor(data.raw_config);
       }
 
       const createdId = modal.value.id;
@@ -284,12 +324,19 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFo
 .app-shell { display: flex; height: 100vh; color: #e5e7eb; }
 .sidebar { width: 300px; background: #171923; border-right: 1px solid #2d3748; display: flex; flex-direction: column; }
 .sidebar__top, .header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #2d3748; gap: 12px; }
-.header__meta { display: grid; gap: 6px; min-width: 0; }
+.header__meta { display: grid; gap: 8px; min-width: 0; flex: 1; }
+.template-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.name-field { display: grid; grid-template-columns: auto minmax(180px, 420px); align-items: center; gap: 10px; color: #94a3b8; font-size: 12px; }
 .sidebar__auth, .sidebar__list { padding: 16px; display: grid; gap: 12px; }
 .brand { font-weight: 800; letter-spacing: .08em; }
-.title-input { background: transparent; border: 0; color: #f8fafc; font-weight: 800; font-size: 18px; padding: 0; outline: none; width: 100%; }
+.title-input { background: #111827; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 700; font-size: 16px; padding: 8px 10px; outline: none; width: 100%; }
+.title-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,.16); }
+.title-input:disabled { opacity: .55; cursor: not-allowed; }
 .muted { color: #94a3b8; font-size: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.status-pill { border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1; padding: 5px 8px; border: 1px solid transparent; }
+.status-pill.success { background: rgba(22, 101, 52, .34); border-color: #22c55e; color: #bbf7d0; }
+.status-pill.error { background: rgba(127, 29, 29, .48); border-color: #ef4444; color: #fecaca; }
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #0f172a; }
 .header { background: #0f172a; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -307,6 +354,7 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFo
 .input, .primary, .ghost, .danger, .icon-btn, .mini { border-radius: 10px; border: 1px solid transparent; padding: 10px 12px; }
 .input { background: #0f172a; border-color: #243041; color: #fff; }
 .primary { background: #2563eb; color: #fff; }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
 .ghost { background: #1e293b; color: #e2e8f0; }
 .danger { background: #7f1d1d; color: #fff; }
 .icon-btn { background: #1e293b; color: #fff; width: 40px; height: 40px; }
