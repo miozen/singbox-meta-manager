@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 重置基础边距，确保全屏编辑器不出现滚动条 */
-body, html {
+html,
+body,
+#app {
     margin: 0;
     padding: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
 }

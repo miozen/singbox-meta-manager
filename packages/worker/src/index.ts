@@ -1,8 +1,41 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createTemplate, deleteTemplate, ensureSchema, listTemplates, readTemplate, stripSchema, updateTemplate } from './templates';
+import {
+  createTemplate,
+  deleteTemplate,
+  ensureSchema,
+  listTemplateVersions,
+  listTemplates,
+  readTemplate,
+  restoreTemplateVersion,
+  stripSchema,
+  updateTemplate
+} from './templates';
+import {
+  createSubscription,
+  deleteSubscription,
+  listSubscriptions,
+  readSubscription,
+  setSubscriptionEnabled,
+  testSubscription,
+  updateSubscription
+} from './subscriptions';
+import {
+  createClientProfile,
+  deleteClientProfile,
+  listClientProfiles,
+  readClientProfile,
+  readClientProfileByToken,
+  resetClientProfileToken,
+  setClientProfileEnabled,
+  updateClientProfile,
+  validateClientProfilePayload
+} from './clientProfiles';
 import { issueToken, verifyToken } from './auth';
-import { ensureJsonString, isNonEmptyString, isValidTemplateId } from '../../shared/src/validators';
+import { generateClientConfig, GenerationError } from './generation';
+import { listGenerationRuns, readConfigCache, saveConfigCache, saveGenerationRun } from './generationRuns';
+import { readGenerationSettings, updateGenerationSettings } from './settings';
+import { cleanRegions, ensureJsonString, isNonEmptyString, isSafeHttpUrl, isValidTemplateId } from '../../shared/src/validators';
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -23,6 +56,16 @@ function jsonError(message: string, status = 400, code = 'BAD_REQUEST') {
 
 function hasRequiredSecrets(env: Bindings) {
   return Boolean(env.ADMIN_PASSWORD && env.TOKEN_SECRET);
+}
+
+function validateSubscriptionPayload(body: any) {
+  if (!body || typeof body !== 'object') return 'Missing request body';
+  if (!isNonEmptyString(body.name) || body.name.trim().length > 80) return 'Subscription name must be 1-80 characters';
+  if (!isSafeHttpUrl(body.url)) return 'Subscription URL must be http or https';
+  if (body.enabled !== undefined && typeof body.enabled !== 'boolean') return 'Enabled must be boolean';
+  const regions = cleanRegions(body.allowed_regions);
+  if ((body.enabled ?? true) && !regions.length) return 'Enabled subscription requires at least one allowed region';
+  return '';
 }
 
 function validateRawConfig(rawConfig: string) {
@@ -73,6 +116,13 @@ app.get('/api/templates/:id', requireAdminAuth, async (c) => {
   return c.json(item);
 });
 
+app.get('/api/templates/:id/versions', requireAdminAuth, async (c) => {
+  const id = c.req.param('id');
+  const item = await readTemplate(c.env.SINGBOX_DB, id);
+  if (!item) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(await listTemplateVersions(c.env.SINGBOX_DB, id));
+});
+
 app.post('/api/templates', requireAdminAuth, async (c) => {
   const body = await c.req.json().catch(() => null) as { id?: string; name?: string; raw_config?: string } | null;
   if (!isValidTemplateId(body?.id) || !isNonEmptyString(body?.name) || !isNonEmptyString(body?.raw_config)) {
@@ -89,18 +139,282 @@ app.post('/api/templates', requireAdminAuth, async (c) => {
 
 app.put('/api/templates/:id', requireAdminAuth, async (c) => {
   const id = c.req.param('id');
-  const body = await c.req.json().catch(() => null) as { name?: string; raw_config?: string } | null;
+  const body = await c.req.json().catch(() => null) as { name?: string; raw_config?: string; version_note?: string } | null;
   if (!isNonEmptyString(body?.name) || !isNonEmptyString(body?.raw_config)) return jsonError('Missing required fields', 400, 'VALIDATION_ERROR');
   if (!validateRawConfig(body.raw_config)) return jsonError('Template config must be valid JSON', 400, 'VALIDATION_ERROR');
-  const result = await updateTemplate(c.env.SINGBOX_DB, id, body.name, body.raw_config);
+  const result = await updateTemplate(c.env.SINGBOX_DB, id, body.name, body.raw_config, body?.version_note || '手动保存');
   if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
   return c.json({ success: true });
+});
+
+app.post('/api/templates/:id/versions/:versionId/restore', requireAdminAuth, async (c) => {
+  const restored = await restoreTemplateVersion(c.env.SINGBOX_DB, c.req.param('id'), c.req.param('versionId'));
+  if (!restored) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(restored);
 });
 
 app.delete('/api/templates/:id', requireAdminAuth, async (c) => {
   const result = await deleteTemplate(c.env.SINGBOX_DB, c.req.param('id'));
   if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
   return c.json({ success: true });
+});
+
+app.get('/api/subscriptions', requireAdminAuth, async (c) => {
+  try {
+    return c.json(await listSubscriptions(c.env.SINGBOX_DB, c.env.TOKEN_SECRET));
+  } catch {
+    return jsonError('Subscription data cannot be decrypted', 409, 'SUBSCRIPTION_DECRYPTION_FAILED');
+  }
+});
+
+app.post('/api/subscriptions', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as any;
+  const error = validateSubscriptionPayload(body);
+  if (error) return jsonError(error, 400, 'VALIDATION_ERROR');
+  const result = await createSubscription(c.env.SINGBOX_DB, {
+    name: body.name,
+    url: body.url,
+    enabled: body.enabled ?? true,
+    allowed_regions: cleanRegions(body.allowed_regions) as any
+  }, c.env.TOKEN_SECRET);
+  return c.json(result, 201);
+});
+
+app.put('/api/subscriptions/:id', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as any;
+  const error = validateSubscriptionPayload(body);
+  if (error) return jsonError(error, 400, 'VALIDATION_ERROR');
+  const updated = await updateSubscription(c.env.SINGBOX_DB, c.req.param('id'), {
+    name: body.name,
+    url: body.url,
+    enabled: body.enabled ?? true,
+    allowed_regions: cleanRegions(body.allowed_regions) as any
+  }, c.env.TOKEN_SECRET);
+  if (!updated) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(updated);
+});
+
+app.put('/api/subscriptions/:id/enabled', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as { enabled?: boolean } | null;
+  if (typeof body?.enabled !== 'boolean') return jsonError('Enabled must be boolean', 400, 'VALIDATION_ERROR');
+  try {
+    const result = await setSubscriptionEnabled(c.env.SINGBOX_DB, c.req.param('id'), body.enabled);
+    if (!result) return jsonError('Not found', 404, 'NOT_FOUND');
+    return c.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'allowed_region_required') {
+      return jsonError('Enabled subscription requires at least one allowed region', 400, 'VALIDATION_ERROR');
+    }
+    throw error;
+  }
+});
+
+app.delete('/api/subscriptions/:id', requireAdminAuth, async (c) => {
+  const result = await deleteSubscription(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json({ success: true });
+});
+
+app.post('/api/subscriptions/:id/test', requireAdminAuth, async (c) => {
+  const item = await readSubscription(c.env.SINGBOX_DB, c.req.param('id'), c.env.TOKEN_SECRET);
+  if (!item) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(await testSubscription(item));
+});
+
+app.post('/api/subscription/test', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as { subscription?: any } | null;
+  const subscription = body?.subscription;
+  if (!subscription || !isSafeHttpUrl(subscription.url)) return jsonError('Subscription URL must be http or https', 400, 'VALIDATION_ERROR');
+  return c.json(await testSubscription({
+    id: subscription.id,
+    name: subscription.name,
+    url: subscription.url,
+    enabled: subscription.enabled ?? true,
+    allowed_regions: cleanRegions(subscription.allowed_regions) as any
+  }));
+});
+
+
+app.get('/api/settings/generation', requireAdminAuth, async (c) => {
+  return c.json(await readGenerationSettings(c.env.SINGBOX_DB));
+});
+
+app.put('/api/settings/generation', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object') return jsonError('Missing request body');
+  return c.json(await updateGenerationSettings(c.env.SINGBOX_DB, body));
+});
+
+app.get('/api/client-profiles', requireAdminAuth, async (c) => c.json(await listClientProfiles(c.env.SINGBOX_DB)));
+
+app.get('/api/client-profiles/:id', requireAdminAuth, async (c) => {
+  const item = await readClientProfile(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!item) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(item);
+});
+
+app.post('/api/client-profiles', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as any;
+  const error = validateClientProfilePayload(body);
+  if (error) return jsonError(error, 400, 'VALIDATION_ERROR');
+  try {
+    const created = await createClientProfile(c.env.SINGBOX_DB, body);
+    return c.json(created, 201);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'template_not_found') return jsonError('Template not found', 400, 'VALIDATION_ERROR');
+    if (error instanceof Error && error.message === 'subscription_not_found') return jsonError('Subscription not found', 400, 'VALIDATION_ERROR');
+    throw error;
+  }
+});
+
+app.put('/api/client-profiles/:id', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as any;
+  const error = validateClientProfilePayload(body);
+  if (error) return jsonError(error, 400, 'VALIDATION_ERROR');
+  try {
+    const updated = await updateClientProfile(c.env.SINGBOX_DB, c.req.param('id'), body);
+    if (!updated) return jsonError('Not found', 404, 'NOT_FOUND');
+    return c.json(updated);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'template_not_found') return jsonError('Template not found', 400, 'VALIDATION_ERROR');
+    if (error instanceof Error && error.message === 'subscription_not_found') return jsonError('Subscription not found', 400, 'VALIDATION_ERROR');
+    throw error;
+  }
+});
+
+app.put('/api/client-profiles/:id/enabled', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => null) as { enabled?: boolean } | null;
+  if (typeof body?.enabled !== 'boolean') return jsonError('Enabled must be boolean', 400, 'VALIDATION_ERROR');
+  const result = await setClientProfileEnabled(c.env.SINGBOX_DB, c.req.param('id'), body.enabled);
+  if (!result) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(result);
+});
+
+app.post('/api/client-profiles/:id/token/reset', requireAdminAuth, async (c) => {
+  const result = await resetClientProfileToken(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!result) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json(result);
+});
+
+app.delete('/api/client-profiles/:id', requireAdminAuth, async (c) => {
+  const result = await deleteClientProfile(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!result.meta.changes) return jsonError('Not found', 404, 'NOT_FOUND');
+  return c.json({ success: true });
+});
+
+app.get('/api/client-profiles/:id/generation-runs', requireAdminAuth, async (c) => {
+  const profile = await readClientProfile(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!profile) return jsonError('Not found', 404, 'NOT_FOUND');
+  const limit = Number(c.req.query('limit') || 10);
+  return c.json(await listGenerationRuns(c.env.SINGBOX_DB, profile.id, limit));
+});
+
+app.post('/api/client-profiles/:id/generate/test', requireAdminAuth, async (c) => {
+  const profile = await readClientProfile(c.env.SINGBOX_DB, c.req.param('id'));
+  if (!profile) return jsonError('Not found', 404, 'NOT_FOUND');
+  const template = await readTemplate(c.env.SINGBOX_DB, profile.template_id);
+  if (!template) return jsonError('Template not found', 404, 'NOT_FOUND');
+  try {
+    const result = await generateClientConfig(c.env.SINGBOX_DB, profile, stripSchema(ensureSchema(template.raw_config)), c.env.TOKEN_SECRET);
+    await saveConfigCache(c.env.SINGBOX_DB, profile.id, result.output, result.summary);
+    await saveGenerationRun(c.env.SINGBOX_DB, {
+      client_profile_id: profile.id,
+      status: 'success',
+      trigger_type: 'manual',
+      duration_ms: Number(result.summary.duration_ms || 0),
+      summary: result.summary,
+      steps: result.steps
+    });
+    return c.json(result);
+  } catch (error) {
+    if (error instanceof GenerationError) {
+      await saveGenerationRun(c.env.SINGBOX_DB, {
+        client_profile_id: profile.id,
+        status: 'error',
+        trigger_type: 'manual',
+        duration_ms: Number(error.diagnostics.summary.duration_ms || 0),
+        summary: error.diagnostics.summary,
+        steps: error.diagnostics.steps,
+        error: error.message
+      });
+      return c.json(error.diagnostics, 502);
+    }
+    await saveGenerationRun(c.env.SINGBOX_DB, {
+      client_profile_id: profile.id,
+      status: 'error',
+      trigger_type: 'manual',
+      duration_ms: 0,
+      summary: {},
+      steps: [],
+      error: error instanceof Error ? error.message : 'generation_failed'
+    });
+    return jsonError('Generation failed', 502, 'GENERATION_FAILED');
+  }
+});
+
+app.get('/sub/client/:token', async (c) => {
+  const profile = await readClientProfileByToken(c.env.SINGBOX_DB, c.req.param('token'));
+  if (!profile || !profile.enabled) return c.text('Subscription Not Found', 404);
+  const template = await readTemplate(c.env.SINGBOX_DB, profile.template_id);
+  if (!template) return c.text('Template Not Found', 404);
+  try {
+    const result = await generateClientConfig(c.env.SINGBOX_DB, profile, stripSchema(ensureSchema(template.raw_config)), c.env.TOKEN_SECRET);
+    await saveConfigCache(c.env.SINGBOX_DB, profile.id, result.output, result.summary);
+    await saveGenerationRun(c.env.SINGBOX_DB, {
+      client_profile_id: profile.id,
+      status: 'success',
+      trigger_type: 'public',
+      duration_ms: Number(result.summary.duration_ms || 0),
+      summary: result.summary,
+      steps: result.steps
+    });
+    return c.json(result.output);
+  } catch (error) {
+    const cache = await readConfigCache(c.env.SINGBOX_DB, profile.id);
+    const message = error instanceof Error ? error.message : 'generation_failed';
+    if (cache) {
+      await saveGenerationRun(c.env.SINGBOX_DB, {
+        client_profile_id: profile.id,
+        status: 'fallback',
+        trigger_type: 'public',
+        duration_ms: 0,
+        summary: { ...cache.summary, cache_updated_at: cache.updated_at, fallback_reason: message },
+        steps: error instanceof GenerationError ? error.diagnostics.steps : [],
+        error: message,
+        used_cache: true
+      });
+      return new Response(JSON.stringify(cache.config), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-singbox-meta-fallback': '1',
+          'x-singbox-meta-cache-updated-at': cache.updated_at || ''
+        }
+      });
+    }
+    if (error instanceof GenerationError) {
+      await saveGenerationRun(c.env.SINGBOX_DB, {
+        client_profile_id: profile.id,
+        status: 'error',
+        trigger_type: 'public',
+        duration_ms: Number(error.diagnostics.summary.duration_ms || 0),
+        summary: error.diagnostics.summary,
+        steps: error.diagnostics.steps,
+        error: error.message
+      });
+      return c.text(`Generation Failed: ${error.message}`, 502);
+    }
+    await saveGenerationRun(c.env.SINGBOX_DB, {
+      client_profile_id: profile.id,
+      status: 'error',
+      trigger_type: 'public',
+      duration_ms: 0,
+      summary: {},
+      steps: [],
+      error: message
+    });
+    return c.text('Generation Failed', 502);
+  }
 });
 
 app.get('/sub/:id', async (c) => {

@@ -1,3 +1,5 @@
+import { ApiRequestError } from './errors';
+
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 const AUTH_TOKEN_KEY = 'singbox_meta_token';
 
@@ -30,6 +32,27 @@ export async function request(path: string, init: RequestInit = {}) {
   }
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const rawText = await res.text();
+    let message = `请求失败 (${res.status})`;
+    let code = 'HTTP_ERROR';
+
+    if (rawText) {
+      try {
+        const payload = JSON.parse(rawText);
+        if (payload?.error?.message) message = payload.error.message;
+        if (payload?.error?.code) code = payload.error.code;
+      } catch {
+        message = rawText;
+      }
+    }
+
+    throw new ApiRequestError({
+      status: res.status,
+      message,
+      code,
+      details: rawText || message
+    });
+  }
   return res;
 }
