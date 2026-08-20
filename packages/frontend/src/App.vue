@@ -24,13 +24,13 @@
       <button class="primary wide" :disabled="authLoading">
         {{ authLoading ? '登录中...' : '进入 SingHub' }}
       </button>
-      <p class="form-note">使用 Cloudflare Worker 环境变量中的管理员密码登录。</p>
     </form>
 
     <ToastHost :items="toasts" />
   </main>
 
   <div v-else class="app-shell">
+    <div v-if="menuOpen" class="sidebar-backdrop" @click="menuOpen = false"></div>
     <aside :class="{ open: menuOpen }">
       <div class="sidebar-brand">
         <strong>SingHub</strong>
@@ -623,19 +623,20 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: #000b; }
 .modal { width: min(520px, 100%); max-height: min(88vh, 880px); overflow: auto; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: #0b1420; display: grid; gap: 14px; }
 .modal h3 { margin: 0; font-size: 20px; line-height: 1.2; }
-.client-modal { width: min(760px, 100%); gap: 10px; padding: 18px; }
-.client-modal .panel-head { margin-bottom: 4px; }
-.client-modal label { margin: 6px 0; gap: 5px; }
-.client-modal .input, .client-modal input, .client-modal select { padding: 8px 10px; }
-.client-modal .binding-picker { margin-top: 4px; }
+.client-modal { width: min(760px, 100%); gap: 7px; padding: 16px; }
+.client-modal .panel-head { margin-bottom: 2px; }
+.client-modal label { margin: 4px 0; gap: 4px; }
+.client-modal .input, .client-modal input, .client-modal select { padding: 7px 9px; }
+.client-modal .binding-picker { margin-top: 2px; }
 .modal-body, .modal-actions { display: grid; gap: 12px; }
 .modal-actions { grid-template-columns: 1fr 1fr; }
 .subscription-modal fieldset { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 10px 16px; }
 .subscription-modal legend { color: #b5c2d2; font-weight: 700; padding: 0 6px; }
 .check-row { margin: 0; display: flex; align-items: center; gap: 8px; }
 .check-row input { width: auto; }
-.binding-picker { display: grid; gap: 10px; padding: 12px; }
-.binding-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 10px; }
+.binding-picker { display: grid; gap: 8px; padding: 10px; }
+.binding-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
+.binding-row { display: block; padding: 7px 8px; }
 .binding-row.active { border-color: #2f8a90; background: #102331; }
 .binding-row textarea { grid-column: 1 / -1; min-height: 76px; resize: vertical; }
 .compact-empty { padding: 16px 0; }
@@ -656,6 +657,7 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
   .auth-shell { grid-template-columns: 1fr; gap: 28px; padding: 24px; justify-items: stretch; }
   .auth-copy h1 { font-size: 40px; }
   .app-shell { display: block; }
+  .sidebar-backdrop { position: fixed; inset: 0; z-index: 19; background: rgba(0, 0, 0, .5); }
   aside { position: fixed; left: -270px; z-index: 20; width: 240px; transition: .2s; }
   aside.open { left: 0; box-shadow: 20px 0 60px #000; }
   .workspace { height: 100vh; }
@@ -663,9 +665,13 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
   .menu { display: block; margin-right: 12px; border: 0; background: transparent; color: white; font-size: 20px; }
   .content { padding: 14px; }
   .status-dot { display: none; }
-  .editor-toolbar, .source-card, .client-card, .template-item__row, .version-item, .binding-row { grid-template-columns: 1fr; }
+  .editor-toolbar, .source-card, .client-card, .template-item__row, .version-item { grid-template-columns: 1fr; }
+  .binding-grid { grid-template-columns: 1fr; }
   .toolbar-actions, .source-actions, .inline-switch { justify-content: flex-start; justify-items: start; }
   .panel-editor { min-height: 620px; }
+}
+@media (min-width: 761px) {
+  .sidebar-backdrop { display: none; }
 }
 @media (max-width: 430px) {
   .auth-card { padding: 24px; }

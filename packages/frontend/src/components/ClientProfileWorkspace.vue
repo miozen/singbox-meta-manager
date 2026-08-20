@@ -130,12 +130,12 @@
           </div>
 
           <div v-if="!subscriptions.length" class="empty compact-empty">请先在订阅源页面添加订阅源</div>
-          <article v-for="sub in orderedSubscriptions" :key="sub.id" class="binding-row" :class="{ active: isBound(sub.id) }">
-            <label class="check-row">
+          <div v-else class="binding-grid">
+            <label v-for="sub in orderedSubscriptions" :key="sub.id" class="binding-row check-row" :class="{ active: isBound(sub.id) }">
               <input type="checkbox" :checked="isBound(sub.id)" @change="$emit('toggle-binding', sub.id)" />
               <span>{{ sub.name }}</span>
             </label>
-          </article>
+          </div>
         </section>
 
         <div class="modal-actions">
