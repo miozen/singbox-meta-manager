@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { TemplateListItem, TemplateRecord, TemplateVersionRecord } from '@shared/types';
+import type { TemplateListItem, TemplateRecord } from '@shared/types';
 
 export async function fetchTemplateList() {
   const res = await request('/api/templates');
@@ -29,16 +29,4 @@ export async function updateTemplate(id: string, payload: Pick<TemplateRecord, '
 
 export async function deleteTemplate(id: string) {
   await request(`/api/templates/${id}`, { method: 'DELETE' });
-}
-
-export async function fetchTemplateVersions(id: string) {
-  const res = await request(`/api/templates/${id}/versions`);
-  return res.json() as Promise<TemplateVersionRecord[]>;
-}
-
-export async function restoreTemplateVersion(id: string, versionId: string) {
-  const res = await request(`/api/templates/${id}/versions/${versionId}/restore`, {
-    method: 'POST'
-  });
-  return res.json() as Promise<TemplateRecord>;
 }

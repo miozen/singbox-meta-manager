@@ -1,19 +1,9 @@
 <template>
   <main v-if="!isAuthed" class="auth-shell">
-    <section class="auth-copy">
-      <div class="brand-mark">SingHub</div>
-      <p class="eyebrow">SINGHUB</p>
-      <h1>SingHub</h1>
-      <p>集中管理客户端链接、模板、订阅源和生成参数。</p>
-    </section>
-
     <form class="auth-card" @submit.prevent="login">
-      <div class="auth-card__brand">
-        <div class="brand-mark small">SingHub</div>
-        <div>
-          <strong>管理员登录</strong>
-          <span>SingHub 控制台</span>
-        </div>
+      <div class="auth-title">
+        <h1>SingHub</h1>
+        <p>配置管理中心</p>
       </div>
 
       <label for="admin-password">管理密码</label>
@@ -38,11 +28,8 @@
   <div v-else class="app-shell">
     <aside :class="{ open: menuOpen }">
       <div class="sidebar-brand">
-        <div class="brand-mark small">SingHub</div>
-        <div>
-          <strong>SingHub</strong>
-          <span>配置管理中心</span>
-        </div>
+        <strong>SingHub</strong>
+        <span>配置管理中心</span>
       </div>
 
       <nav>
@@ -105,14 +92,11 @@
           @save="saveClientProfile"
           @close-modal="closeClientProfileModal"
           @toggle-binding="toggleClientProfileBinding"
-          @move-binding="moveClientProfileBinding"
-          @update-override="updateClientProfileOverride"
         />
 
         <TemplateWorkspace
           v-if="currentPage === 'templates'"
           :templates="templates"
-          :template-versions="templateVersions"
           :current-id="currentId"
           :current-name="currentName"
           :raw-json="rawJson"
@@ -120,15 +104,12 @@
           :saving="saving"
           :syntax-error="syntaxError"
           :is-dirty="isDirty"
-          :versions-loading="versionsLoading"
-          :restoring-version-id="restoringVersionId"
           @create="openCreate"
           @select="selectTemplate"
           @clone="openClone"
           @delete="openDelete"
           @save="save"
           @copy-sub="copyCurrentLink"
-          @restore-version="restoreVersion"
           @set-syntax-error="setSyntaxError"
           @update:current-name="updateCurrentName"
           @update:raw-json="updateRawJson"
@@ -283,9 +264,6 @@ const {
   loading,
   saving,
   syntaxError,
-  templateVersions,
-  versionsLoading,
-  restoringVersionId,
   modal,
   isDirty,
   setSyntaxError,
@@ -299,7 +277,6 @@ const {
   closeModal,
   confirmModal,
   copyCurrentSubLink,
-  restoreVersion
 } = templateManager;
 
 const subscriptionManager = useSubscriptionManager({
@@ -370,9 +347,7 @@ const {
   copyLink: copyClientProfileLink,
   testGeneration: testClientProfileGenerationItem,
   toggleGenerationReport: toggleClientProfileGenerationReport,
-  toggleBinding: toggleClientProfileBinding,
-  moveBinding: moveClientProfileBinding,
-  updateOverride: updateClientProfileOverride
+  toggleBinding: toggleClientProfileBinding
 } = clientProfileManager;
 
 const settingsManager = useGenerationSettingsManager({
@@ -486,45 +461,24 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .muted { color: var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.brand-mark {
-  display: inline-grid;
-  place-items: center;
-  min-width: 94px;
-  height: 44px;
-  padding: 0 14px;
-  border: 1px solid #4ce1d788;
-  border-radius: 10px;
-  background: #10272e;
-  color: var(--cyan);
-  font-weight: 900;
-  letter-spacing: 0;
-  box-shadow: 0 0 32px #3cd8d51f;
-}
-.brand-mark.small { min-width: 82px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12px; }
-
 .auth-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
-  align-items: center;
-  gap: 8vw;
-  padding: 8vw;
+  place-items: center;
+  padding: 24px;
   background: #000;
 }
-.auth-copy { max-width: 680px; }
-.auth-copy h1 { margin: 24px 0 14px; font-size: clamp(48px, 7vw, 92px); line-height: 1; }
-.auth-copy > p:last-child { max-width: 520px; color: var(--muted); font-size: 17px; }
 .auth-card {
-  width: min(430px, 100%);
-  padding: 34px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #080f18;
-  box-shadow: 0 30px 90px #000;
+  width: min(380px, 100%);
+  padding: 28px;
+  border: 1px solid #1d2939;
+  border-radius: 10px;
+  background: #070b10;
+  box-shadow: 0 24px 80px #000;
 }
-.auth-card__brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-.auth-card__brand strong, .auth-card__brand span { display: block; }
-.auth-card__brand span { color: var(--muted); font-size: 12px; }
+.auth-title { margin-bottom: 24px; }
+.auth-title h1 { margin: 0; font-size: 28px; line-height: 1.1; }
+.auth-title p { margin: 6px 0 0; color: var(--muted); }
 label { display: grid; gap: 7px; color: #b5c2d2; font-weight: 600; margin: 14px 0; }
 .input, .title-input, .modal input, .modal textarea, .modal select, .client-modal select {
   width: 100%;
@@ -555,8 +509,8 @@ label { display: grid; gap: 7px; color: #b5c2d2; font-weight: 600; margin: 14px 
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); background: var(--bg); }
 aside { position: sticky; top: 0; height: 100vh; padding: 20px 14px; border-right: 1px solid var(--line); background: #060b12; display: flex; flex-direction: column; }
-.sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; }
-.sidebar-brand strong, .sidebar-brand span { display: block; }
+.sidebar-brand { display: grid; gap: 3px; padding: 0 10px 22px; }
+.sidebar-brand strong { font-size: 20px; line-height: 1.1; }
 .sidebar-brand span { color: var(--muted); font-size: 12px; }
 nav { display: grid; gap: 4px; }
 nav button { display: flex; align-items: center; gap: 12px; border: 0; border-radius: 8px; background: transparent; color: #92a1b5; padding: 10px 12px; text-align: left; }
@@ -578,13 +532,15 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 
 .workspace-grid { display: grid; gap: 16px; min-height: 0; }
 .split { grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); height: calc(100vh - 112px); }
+.template-editor-panel { height: calc(100vh - 112px); }
 .panel { min-height: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 16px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
 .panel-head h3, .panel-head h4 { margin: 0; }
 .compact-head { align-items: flex-start; }
 .panel-list { display: grid; grid-template-rows: auto minmax(180px, 1fr) auto; gap: 14px; overflow: hidden; }
 .panel-editor { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 0; overflow: hidden; }
-.editor-toolbar { display: grid; grid-template-columns: minmax(220px, 360px) minmax(0, 1fr); align-items: end; gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); background: #0a1320; }
+.editor-toolbar { display: grid; grid-template-columns: minmax(180px, 260px) minmax(220px, 340px) minmax(0, 1fr); align-items: end; gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); background: #0a1320; }
+.template-select-field { margin: 0; }
 .inline-name { margin: 0; }
 .toolbar-actions, .actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .editor-wrap { position: relative; min-height: 0; border: 0; background: #08111b; overflow: hidden; }
@@ -678,8 +634,7 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
   .settings-form.compact { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
-  .auth-shell { grid-template-columns: 1fr; padding: 28px; }
-  .auth-copy { display: none; }
+  .auth-shell { padding: 20px; }
   .app-shell { display: block; }
   aside { position: fixed; left: -270px; z-index: 20; width: 240px; transition: .2s; }
   aside.open { left: 0; box-shadow: 20px 0 60px #000; }

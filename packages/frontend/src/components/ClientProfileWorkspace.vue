@@ -135,16 +135,6 @@
               <input type="checkbox" :checked="isBound(sub.id)" @change="$emit('toggle-binding', sub.id)" />
               <span>{{ sub.name }}</span>
             </label>
-            <div class="binding-actions" v-if="isBound(sub.id)">
-              <button type="button" class="mini" @click="$emit('move-binding', sub.id, -1)">上移</button>
-              <button type="button" class="mini" @click="$emit('move-binding', sub.id, 1)">下移</button>
-            </div>
-            <textarea
-              v-if="isBound(sub.id)"
-              :value="bindingOverride(sub.id)"
-              placeholder="可选局部覆盖 JSON，例如 {}"
-              @input="handleOverrideInput(sub.id, $event)"
-            ></textarea>
           </article>
         </section>
 
@@ -205,7 +195,6 @@ const emit = defineEmits<{
   'close-modal': [];
   'toggle-binding': [subscriptionId: string];
   'move-binding': [subscriptionId: string, offset: -1 | 1];
-  'update-override': [subscriptionId: string, value: string];
 }>();
 
 const origin = window.location.origin;
@@ -231,15 +220,9 @@ function runStatusLabel(status: GenerationRunRecord['status']) {
   return '失败';
 }
 
-function handleOverrideInput(subscriptionId: string, event: Event) {
-  emit('update-override', subscriptionId, (event.target as HTMLTextAreaElement)?.value || '');
-}
 
 function isBound(subscriptionId: string) {
   return props.form.subscriptions.some((binding) => binding.subscription_id === subscriptionId);
 }
 
-function bindingOverride(subscriptionId: string) {
-  return props.form.subscriptions.find((binding) => binding.subscription_id === subscriptionId)?.override_json || '';
-}
 </script>

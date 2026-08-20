@@ -1,12 +1,10 @@
 import { computed, ref } from 'vue';
-import type { TemplateListItem, TemplateVersionRecord } from '@shared/types';
+import type { TemplateListItem } from '@shared/types';
 import {
   createTemplate,
   deleteTemplate,
   fetchTemplate,
   fetchTemplateList,
-  fetchTemplateVersions,
-  restoreTemplateVersion,
   updateTemplate
 } from '../api/templates';
 
@@ -55,9 +53,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
   const loading = ref(false);
   const saving = ref(false);
   const syntaxError = ref(false);
-  const templateVersions = ref<TemplateVersionRecord[]>([]);
-  const versionsLoading = ref(false);
-  const restoringVersionId = ref('');
 
   const modal = ref({
     show: false,
@@ -81,8 +76,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
     rawJson.value = '';
     originalJson.value = '';
     syntaxError.value = false;
-    templateVersions.value = [];
-    restoringVersionId.value = '';
   };
 
   const setSyntaxError = (value: boolean) => {
@@ -100,21 +93,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
     }
   };
 
-  const refreshVersions = async (templateId = currentId.value) => {
-    if (!templateId) {
-      templateVersions.value = [];
-      return;
-    }
-    versionsLoading.value = true;
-    try {
-      templateVersions.value = await fetchTemplateVersions(templateId);
-    } catch (error) {
-      hooks.handleRequestError?.(error, '加载版本历史失败');
-    } finally {
-      versionsLoading.value = false;
-    }
-  };
-
   const loadTemplate = async (id: string) => {
     loading.value = true;
     try {
@@ -125,7 +103,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
       rawJson.value = editorConfig;
       originalJson.value = editorConfig;
       syntaxError.value = false;
-      await refreshVersions(id);
     } catch (error) {
       hooks.handleRequestError?.(error, '加载失败');
     } finally {
@@ -151,7 +128,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
       originalJson.value = cleanConfig;
       const template = templates.value.find((tpl) => tpl.id === currentId.value);
       if (template) template.name = currentName.value;
-      await refreshVersions(currentId.value);
       hooks.notify?.('保存成功', 'success');
     } catch (error) {
       hooks.handleRequestError?.(error, '保存失败');
@@ -258,27 +234,6 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
     hooks.notify?.('订阅链接已复制', 'success');
   };
 
-  const restoreVersion = async (versionId: string) => {
-    if (!currentId.value || !versionId) return;
-    if (!(await hooks.ensureAuthed?.())) return;
-
-    restoringVersionId.value = versionId;
-    try {
-      const restored = await restoreTemplateVersion(currentId.value, versionId);
-      currentName.value = restored.name;
-      rawJson.value = stripSchemaForEditor(restored.raw_config);
-      originalJson.value = stripSchemaForEditor(restored.raw_config);
-      syntaxError.value = false;
-      await refreshList({ autoLoadFirst: false });
-      await refreshVersions(currentId.value);
-      hooks.notify?.('已恢复到所选版本', 'success');
-    } catch (error) {
-      hooks.handleRequestError?.(error, '恢复版本失败');
-    } finally {
-      restoringVersionId.value = '';
-    }
-  };
-
   return {
     templates,
     currentId,
@@ -288,15 +243,11 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
     loading,
     saving,
     syntaxError,
-    templateVersions,
-    versionsLoading,
-    restoringVersionId,
     modal,
     isDirty,
     resetCurrentTemplate,
     setSyntaxError,
     refreshList,
-    refreshVersions,
     loadTemplate,
     selectTemplate,
     save,
@@ -306,6 +257,5 @@ export function useTemplateManager(hooks: TemplateManagerHooks = {}) {
     closeModal,
     confirmModal,
     copyCurrentSubLink,
-    restoreVersion
   };
 }

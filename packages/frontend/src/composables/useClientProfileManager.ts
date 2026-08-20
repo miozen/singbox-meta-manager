@@ -255,21 +255,6 @@ export function useClientProfileManager(hooks: Hooks = {}) {
     form.value.subscriptions.push({ subscription_id: subscriptionId, position: form.value.subscriptions.length, override_json: '' });
   };
 
-  const moveBinding = (subscriptionId: string, offset: -1 | 1) => {
-    const index = form.value.subscriptions.findIndex((binding) => binding.subscription_id === subscriptionId);
-    const next = index + offset;
-    if (index < 0 || next < 0 || next >= form.value.subscriptions.length) return;
-    const items = [...form.value.subscriptions];
-    const [item] = items.splice(index, 1);
-    items.splice(next, 0, item);
-    form.value.subscriptions = items.map((binding, position) => ({ ...binding, position }));
-  };
-
-  const updateOverride = (subscriptionId: string, value: string) => {
-    form.value.subscriptions = form.value.subscriptions.map((binding) => (
-      binding.subscription_id === subscriptionId ? { ...binding, override_json: value } : binding
-    ));
-  };
 
   return {
     profiles,
@@ -299,8 +284,6 @@ export function useClientProfileManager(hooks: Hooks = {}) {
     toggleGenerationReport,
     loadGenerationRuns,
     isBound,
-    toggleBinding,
-    moveBinding,
-    updateOverride
+    toggleBinding
   };
 }
