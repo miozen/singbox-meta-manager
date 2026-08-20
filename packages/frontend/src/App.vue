@@ -637,6 +637,7 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 .binding-picker { display: grid; gap: 8px; padding: 10px; }
 .binding-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
 .binding-row { display: block; padding: 7px 8px; }
+.binding-row.check-row { display: flex; gap: 8px; }
 .binding-row.active { border-color: #2f8a90; background: #102331; }
 .binding-row textarea { grid-column: 1 / -1; min-height: 76px; resize: vertical; }
 .compact-empty { padding: 16px 0; }
