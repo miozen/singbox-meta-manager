@@ -1,5 +1,10 @@
 <template>
   <main v-if="!isAuthed" class="auth-shell">
+    <section class="auth-copy">
+      <h1>SingHub</h1>
+      <p>集中管理客户端、模板、订阅和生成参数。</p>
+    </section>
+
     <form class="auth-card" @submit.prevent="login">
       <div class="auth-title">
         <h1>SingHub</h1>
@@ -464,10 +469,15 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .auth-shell {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 24px;
+  grid-template-columns: minmax(280px, 520px) minmax(320px, 380px);
+  align-items: center;
+  justify-content: center;
+  gap: 72px;
+  padding: 32px;
   background: #000;
 }
+.auth-copy h1 { margin: 0 0 12px; font-size: clamp(46px, 7vw, 80px); line-height: 1; }
+.auth-copy p { margin: 0; max-width: 430px; color: var(--muted); font-size: 17px; }
 .auth-card {
   width: min(380px, 100%);
   padding: 28px;
@@ -476,9 +486,10 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   background: #070b10;
   box-shadow: 0 24px 80px #000;
 }
-.auth-title { margin-bottom: 24px; }
+.auth-title { margin-bottom: 22px; }
 .auth-title h1 { margin: 0; font-size: 28px; line-height: 1.1; }
 .auth-title p { margin: 6px 0 0; color: var(--muted); }
+.auth-card .input { margin-bottom: 16px; }
 label { display: grid; gap: 7px; color: #b5c2d2; font-weight: 600; margin: 14px 0; }
 .input, .title-input, .modal input, .modal textarea, .modal select, .client-modal select {
   width: 100%;
@@ -539,8 +550,11 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 .compact-head { align-items: flex-start; }
 .panel-list { display: grid; grid-template-rows: auto minmax(180px, 1fr) auto; gap: 14px; overflow: hidden; }
 .panel-editor { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 0; overflow: hidden; }
-.editor-toolbar { display: grid; grid-template-columns: minmax(180px, 260px) minmax(220px, 340px) minmax(0, 1fr); align-items: end; gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); background: #0a1320; }
+.editor-toolbar { display: grid; grid-template-columns: minmax(150px, 210px) minmax(170px, 240px) minmax(360px, 1fr); align-items: end; gap: 10px; padding: 12px; border-bottom: 1px solid var(--line); background: #0a1320; }
 .template-select-field { margin: 0; }
+.template-toolbar .toolbar-actions { flex-wrap: nowrap; justify-content: flex-end; overflow-x: auto; padding-bottom: 1px; }
+.template-toolbar .toolbar-actions button, .template-toolbar .status-pill { flex: 0 0 auto; }
+.template-toolbar .input, .template-toolbar .title-input { min-width: 0; padding: 8px 10px; }
 .inline-name { margin: 0; }
 .toolbar-actions, .actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .editor-wrap { position: relative; min-height: 0; border: 0; background: #08111b; overflow: hidden; }
@@ -608,8 +622,12 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: #000b; }
 .modal { width: min(520px, 100%); max-height: min(88vh, 880px); overflow: auto; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: #0b1420; display: grid; gap: 14px; }
-.modal h3 { margin: 0; }
-.client-modal { width: min(760px, 100%); }
+.modal h3 { margin: 0; font-size: 20px; line-height: 1.2; }
+.client-modal { width: min(760px, 100%); gap: 10px; padding: 18px; }
+.client-modal .panel-head { margin-bottom: 4px; }
+.client-modal label { margin: 6px 0; gap: 5px; }
+.client-modal .input, .client-modal input, .client-modal select { padding: 8px 10px; }
+.client-modal .binding-picker { margin-top: 4px; }
 .modal-body, .modal-actions { display: grid; gap: 12px; }
 .modal-actions { grid-template-columns: 1fr 1fr; }
 .subscription-modal fieldset { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 10px 16px; }
@@ -631,10 +649,12 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 @media (max-width: 1180px) {
   .split { grid-template-columns: 1fr; height: auto; }
   .panel-editor { min-height: 680px; }
+  .editor-toolbar { grid-template-columns: minmax(140px, 190px) minmax(150px, 210px) minmax(320px, 1fr); }
   .settings-form.compact { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
-  .auth-shell { padding: 20px; }
+  .auth-shell { grid-template-columns: 1fr; gap: 28px; padding: 24px; justify-items: stretch; }
+  .auth-copy h1 { font-size: 40px; }
   .app-shell { display: block; }
   aside { position: fixed; left: -270px; z-index: 20; width: 240px; transition: .2s; }
   aside.open { left: 0; box-shadow: 20px 0 60px #000; }
