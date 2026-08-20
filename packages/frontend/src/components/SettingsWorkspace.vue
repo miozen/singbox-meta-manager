@@ -3,7 +3,6 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">GENERATION SETTINGS</p>
           <h3>系统设置</h3>
         </div>
         <button class="primary" :disabled="saving || loading" @click="$emit('save')">{{ saving ? '保存中...' : '保存设置' }}</button>
@@ -13,7 +12,6 @@
       <div v-else class="settings-grid">
         <section class="settings-section">
           <div class="section-title">
-            <p class="eyebrow">REGIONS</p>
             <h4>区域识别关键字</h4>
           </div>
           <div class="region-settings">
@@ -26,7 +24,6 @@
 
         <section class="settings-section">
           <div class="section-title">
-            <p class="eyebrow">FILTERS</p>
             <h4>订阅拉取与清洗</h4>
           </div>
           <div class="settings-form">
@@ -51,7 +48,6 @@
 
         <section class="settings-section">
           <div class="section-title">
-            <p class="eyebrow">URLTEST</p>
             <h4>测速分组参数</h4>
           </div>
           <div class="settings-form compact">
@@ -68,7 +64,6 @@
               <input :value="settings.urltest.tolerance" type="number" min="0" max="5000" step="10" @input="emitNumber('update-urltest', 'tolerance', $event)" />
             </label>
           </div>
-          <small class="muted">最后更新：{{ settings.updated_at || '-' }}</small>
         </section>
       </div>
     </div>

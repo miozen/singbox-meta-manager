@@ -368,7 +368,10 @@ app.get('/sub/client/:token', async (c) => {
       summary: result.summary,
       steps: result.steps
     });
-    return c.json(result.output);
+    return new Response(JSON.stringify(result.output, null, 2), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
   } catch (error) {
     const cache = await readConfigCache(c.env.SINGBOX_DB, profile.id);
     const message = error instanceof Error ? error.message : 'generation_failed';
@@ -383,7 +386,7 @@ app.get('/sub/client/:token', async (c) => {
         error: message,
         used_cache: true
       });
-      return new Response(JSON.stringify(cache.config), {
+      return new Response(JSON.stringify(cache.config, null, 2), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',

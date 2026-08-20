@@ -1,12 +1,12 @@
 <template>
-  <div class="workspace-grid split">
+  <div class="workspace-grid template-workspace split">
     <section class="panel panel-list">
-      <div class="panel-head">
+      <div class="panel-head compact-head">
         <div>
-          <p class="eyebrow">TEMPLATES</p>
-          <h3>模板列表</h3>
+          <h3>模板</h3>
+          <span class="muted">{{ templates.length }} 个</span>
         </div>
-        <button class="primary" @click="$emit('create')">＋ 添加模板</button>
+        <button class="primary" @click="$emit('create')">新增</button>
       </div>
 
       <TemplateList
@@ -27,37 +27,32 @@
     </section>
 
     <section class="panel panel-editor">
-      <div class="panel-head panel-head--editor">
-        <div class="editor-heading">
-          <p class="eyebrow">EDITOR</p>
-          <h3>{{ currentId ? '模板编辑器' : '未选择模板' }}</h3>
-          <div class="template-meta">
-            <span class="muted mono">ID {{ currentId || '---' }}</span>
-            <span v-if="currentId" class="status-pill" :class="syntaxError ? 'error' : 'success'">
-              {{ syntaxError ? '校验失败' : '校验通过' }}
-            </span>
-          </div>
-        </div>
+      <div class="editor-toolbar">
+        <label class="name-field inline-name">
+          <span>模板名称</span>
+          <input
+            :value="currentName"
+            class="title-input"
+            :disabled="!currentId"
+            placeholder="未选择模板"
+            @input="handleCurrentNameInput"
+          />
+        </label>
 
-        <div class="actions" v-if="currentId">
-          <button class="ghost" @click="formatJson">格式化</button>
-          <button class="ghost" @click="$emit('copy-sub')">复制订阅</button>
-          <button class="primary" @click="$emit('save')" :disabled="!isDirty || saving || syntaxError">
+        <div class="toolbar-actions">
+          <span v-if="currentId" class="status-pill" :class="syntaxError ? 'error' : 'success'">
+            {{ syntaxError ? 'JSON 有误' : 'JSON 正常' }}
+          </span>
+          <button class="ghost" @click="$emit('create')">新增</button>
+          <button class="ghost" :disabled="!currentId" @click="cloneCurrent">克隆</button>
+          <button class="danger" :disabled="!currentId" @click="deleteCurrent">删除</button>
+          <button class="ghost" :disabled="!currentId" @click="formatJson">格式化</button>
+          <button class="ghost" :disabled="!currentId" @click="$emit('copy-sub')">复制订阅</button>
+          <button class="primary" :disabled="!currentId || !isDirty || saving || syntaxError" @click="$emit('save')">
             {{ saving ? '保存中...' : '保存' }}
           </button>
         </div>
       </div>
-
-      <label class="name-field">
-        <span>名称</span>
-        <input
-          :value="currentName"
-          class="title-input"
-          :disabled="!currentId"
-          placeholder="未选择模板"
-          @input="handleCurrentNameInput"
-        />
-      </label>
 
       <section class="editor-wrap">
         <div v-if="loading" class="overlay">加载中...</div>
@@ -85,7 +80,7 @@ import type { TemplateListItem, TemplateVersionRecord } from '@shared/types';
 import TemplateList from './TemplateList.vue';
 import TemplateVersionList from './TemplateVersionList.vue';
 
-defineProps<{
+const __props = defineProps<{
   templates: TemplateListItem[];
   templateVersions: TemplateVersionRecord[];
   currentId: string;
@@ -139,6 +134,17 @@ const handleValidation = (markers: any[]) => {
 
 const formatJson = () => {
   editorRef.value?.getAction('editor.action.formatDocument')?.run();
+};
+
+
+const cloneCurrent = () => {
+  if (!__props.currentId) return;
+  emit('clone', __props.currentId, __props.currentName || __props.currentId);
+};
+
+const deleteCurrent = () => {
+  if (!__props.currentId) return;
+  emit('delete', __props.currentId, __props.currentName || __props.currentId);
 };
 
 const handleCurrentNameInput = (event: Event) => {

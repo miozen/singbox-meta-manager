@@ -3,10 +3,9 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">SOURCES</p>
-          <h3>订阅源</h3>
+          <h3>我的订阅</h3>
         </div>
-        <button class="primary" @click="$emit('create')">＋ 添加订阅源</button>
+        <button class="primary" @click="$emit('create')">添加订阅</button>
       </div>
 
       <div v-if="loading" class="empty">订阅源加载中...</div>

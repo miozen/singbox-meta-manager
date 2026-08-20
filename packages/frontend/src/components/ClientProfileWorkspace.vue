@@ -3,10 +3,9 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">CLIENT LINKS</p>
           <h3>客户端链接</h3>
         </div>
-        <button class="primary" @click="$emit('create')">＋ 新建客户端链接</button>
+        <button class="primary" @click="$emit('create')">新建链接</button>
       </div>
 
       <div v-if="loading" class="empty">客户端链接加载中...</div>
@@ -50,10 +49,10 @@
                 {{ generationTestingIds[profile.id] ? '生成中...' : '测试生成' }}
               </button>
               <button v-if="generationReports[profile.id]" class="ghost" @click="$emit('toggle-generation-report', profile)">
-                {{ generationReports[profile.id].expanded ? '收起报告' : '生成报告' }}
+                {{ generationReports[profile.id].expanded ? '收起' : '报告' }}
               </button>
               <button class="ghost" :disabled="Boolean(resettingIds[profile.id])" @click="$emit('reset-token', profile)">
-                {{ resettingIds[profile.id] ? '重置中...' : '重置 Token' }}
+                {{ resettingIds[profile.id] ? '重置中...' : '重置' }}
               </button>
               <button class="ghost" @click="$emit('edit', profile)">编辑</button>
               <button class="danger" :disabled="deletingId === profile.id" @click="$emit('delete', profile)">
@@ -125,7 +124,6 @@
         <section class="binding-picker">
           <div class="binding-head">
             <div>
-              <p class="eyebrow">BINDINGS</p>
               <h4>订阅源绑定</h4>
             </div>
             <span class="muted">{{ form.subscriptions.length }} / {{ subscriptions.length }}</span>
