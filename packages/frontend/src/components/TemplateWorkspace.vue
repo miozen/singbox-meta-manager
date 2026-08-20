@@ -80,7 +80,7 @@ import type { TemplateListItem, TemplateVersionRecord } from '@shared/types';
 import TemplateList from './TemplateList.vue';
 import TemplateVersionList from './TemplateVersionList.vue';
 
-const __props = defineProps<{
+const props = defineProps<{
   templates: TemplateListItem[];
   templateVersions: TemplateVersionRecord[];
   currentId: string;
@@ -138,13 +138,13 @@ const formatJson = () => {
 
 
 const cloneCurrent = () => {
-  if (!__props.currentId) return;
-  emit('clone', __props.currentId, __props.currentName || __props.currentId);
+  if (!props.currentId) return;
+  emit('clone', props.currentId, props.currentName || props.currentId);
 };
 
 const deleteCurrent = () => {
-  if (!__props.currentId) return;
-  emit('delete', __props.currentId, __props.currentName || __props.currentId);
+  if (!props.currentId) return;
+  emit('delete', props.currentId, props.currentName || props.currentId);
 };
 
 const handleCurrentNameInput = (event: Event) => {
