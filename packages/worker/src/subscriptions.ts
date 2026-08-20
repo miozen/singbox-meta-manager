@@ -47,7 +47,12 @@ export async function decryptSubscriptionUrl(value: string, secret: string) {
 }
 
 async function ensureSubscriptionTable(db: D1Database) {
-  await db.exec(`
+  const existing = await db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'subscriptions'"
+  ).first<{ name: string }>();
+  if (existing) return;
+
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -56,10 +61,12 @@ async function ensureSubscriptionTable(db: D1Database) {
       allowed_regions_json TEXT NOT NULL DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    )
+  `).run();
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at
-      ON subscriptions(created_at DESC);
-  `);
+    ON subscriptions(created_at DESC)
+  `).run();
 }
 
 function parseRegions(raw: string) {

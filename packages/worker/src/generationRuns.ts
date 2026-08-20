@@ -37,7 +37,12 @@ type ConfigCacheRow = {
 };
 
 export async function ensureGenerationRunTables(db: D1Database) {
-  await db.exec(`
+  const existing = await db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'generation_runs'"
+  ).first<{ name: string }>();
+  if (existing) return;
+
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS generation_runs (
       id TEXT PRIMARY KEY,
       client_profile_id TEXT NOT NULL,
@@ -50,17 +55,21 @@ export async function ensureGenerationRunTables(db: D1Database) {
       used_cache INTEGER NOT NULL DEFAULT 0 CHECK (used_cache IN (0, 1)),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (client_profile_id) REFERENCES client_profiles(id) ON DELETE CASCADE
-    );
+    )
+  `).run();
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_generation_runs_profile_created_at
-      ON generation_runs(client_profile_id, created_at DESC);
+    ON generation_runs(client_profile_id, created_at DESC)
+  `).run();
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS client_profile_config_cache (
       client_profile_id TEXT PRIMARY KEY,
       config_json TEXT NOT NULL,
       summary_json TEXT NOT NULL DEFAULT '{}',
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (client_profile_id) REFERENCES client_profiles(id) ON DELETE CASCADE
-    );
-  `);
+    )
+  `).run();
 }
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {

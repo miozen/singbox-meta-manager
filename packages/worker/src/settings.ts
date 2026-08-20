@@ -25,13 +25,18 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
 type SettingsRow = { key: string; value_json: string; updated_at?: string };
 
 export async function ensureSettingsTable(db: D1Database) {
-  await db.exec(`
+  const existing = await db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'"
+  ).first<{ name: string }>();
+  if (existing) return;
+
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value_json TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+    )
+  `).run();
 }
 
 function uniqueStrings(value: unknown, fallback: string[], limit = 30) {

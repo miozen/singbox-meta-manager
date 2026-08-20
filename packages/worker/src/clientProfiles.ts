@@ -11,7 +11,12 @@ import {
 } from './db';
 
 async function ensureClientProfileTables(db: D1Database) {
-  await db.exec(`
+  const existing = await db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'client_profiles'"
+  ).first<{ name: string }>();
+  if (existing) return;
+
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS client_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -21,9 +26,13 @@ async function ensureClientProfileTables(db: D1Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE RESTRICT
-    );
+    )
+  `).run();
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_client_profiles_template_id
-      ON client_profiles(template_id);
+    ON client_profiles(template_id)
+  `).run();
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS client_profile_subscriptions (
       client_profile_id TEXT NOT NULL,
       subscription_id TEXT NOT NULL,
@@ -34,10 +43,12 @@ async function ensureClientProfileTables(db: D1Database) {
       PRIMARY KEY (client_profile_id, subscription_id),
       FOREIGN KEY (client_profile_id) REFERENCES client_profiles(id) ON DELETE CASCADE,
       FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE
-    );
+    )
+  `).run();
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_client_profile_subscriptions_profile_position
-      ON client_profile_subscriptions(client_profile_id, position);
-  `);
+    ON client_profile_subscriptions(client_profile_id, position)
+  `).run();
 }
 
 function newPublicToken() {
