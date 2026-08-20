@@ -2,9 +2,9 @@
   <main v-if="!isAuthed" class="auth-shell">
     <section class="auth-copy">
       <div class="brand-mark">PH</div>
-      <p class="eyebrow">PHASE 9 / SETTINGS</p>
-      <h1>统一模板后台<br><span>正在迁移升级</span></h1>
-      <p>当前阶段开始迁移系统设置，让生成参数从硬编码升级为可在线维护。</p>
+      <p class="eyebrow">SING-BOX MANAGER</p>
+      <h1>Sing-box 配置中心<br><span>Worker 控制台</span></h1>
+      <p>集中管理模板、订阅源、客户端链接和生成参数。</p>
     </section>
 
     <form class="auth-card" @submit.prevent="login">
@@ -26,7 +26,7 @@
       <button class="primary wide" :disabled="authLoading">
         {{ authLoading ? '登录中...' : '进入控制台' }}
       </button>
-      <p class="form-note">当前仍使用单管理员密码登录模式，后续阶段再扩展更多业务模块。</p>
+      <p class="form-note">使用 Cloudflare Worker 环境变量中的管理员密码登录。</p>
     </form>
 
     <ToastHost :items="toasts" />
@@ -77,7 +77,7 @@
       <section class="content">
         <div class="hero">
           <div>
-            <p class="eyebrow">PHASE 9</p>
+            <p class="eyebrow">CONTROL PLANE</p>
             <h3>{{ currentHero.title }}</h3>
             <p>{{ currentHero.description }}</p>
           </div>
@@ -278,7 +278,7 @@ const currentStats = computed(() => {
       { label: '客户端链接', value: clientProfiles.value.length, note: `${enabledClientProfileCount.value} 个已启用` },
       { label: '模板总数', value: templates.value.length, note: '可绑定模板' },
       { label: '订阅源总数', value: subscriptions.value.length, note: '可绑定订阅源' },
-      { label: '当前阶段', value: 'Stage 9', note: '系统设置迁移' }
+      { label: '发布状态', value: '已上线', note: 'Worker 构建部署' }
     ];
   }
   if (currentPage.value === 'settings') {
@@ -286,7 +286,7 @@ const currentStats = computed(() => {
       { label: '区域规则', value: settingsRegions.length, note: 'HK / TW / SG / JP / US' },
       { label: '拉取超时', value: `${generationSettings.value.fetch_timeout_ms}ms`, note: '订阅源请求限制' },
       { label: '最大响应', value: `${Math.round(generationSettings.value.max_subscription_bytes / 100000) / 10}MB`, note: '防止异常大响应' },
-      { label: '当前阶段', value: 'Stage 9', note: '系统设置迁移' }
+      { label: '发布状态', value: '已上线', note: 'Worker 构建部署' }
     ];
   }
   if (currentPage.value === 'subscriptions') {
@@ -294,14 +294,14 @@ const currentStats = computed(() => {
       { label: '订阅源总数', value: subscriptions.value.length, note: `${enabledSubscriptionCount.value} 个已启用` },
       { label: '区域范围', value: regions.length, note: 'HK / TW / SG / JP / US' },
       { label: '测试状态', value: Object.keys(subscriptionReports.value).length, note: '已保留的即时测试结果' },
-      { label: '当前阶段', value: 'Stage 9', note: '系统设置迁移' }
+      { label: '发布状态', value: '已上线', note: 'Worker 构建部署' }
     ];
   }
   return [
     { label: '模板总数', value: templates.value.length, note: currentId.value ? '已选择当前模板' : '等待选择模板' },
     { label: '编辑状态', value: currentId.value ? (isDirty.value ? '未保存' : '已同步') : '-', note: currentId.value ? '当前模板变更状态' : '尚未进入编辑' },
     { label: 'JSON 校验', value: currentId.value ? (syntaxError.value ? '失败' : '通过') : '-', note: currentId.value ? 'Monaco 实时诊断' : '未开始校验' },
-    { label: '当前阶段', value: 'Stage 9', note: '系统设置迁移' }
+    { label: '发布状态', value: '已上线', note: 'Worker 构建部署' }
   ];
 });
 
@@ -498,7 +498,7 @@ const logoutWithNotice = () => {
 
 const selectPage = async (id: string, disabled = false) => {
   if (disabled) {
-    showToast('该模块将在后续阶段逐步迁移', 'info');
+    showToast('该模块暂未启用', 'info');
     return;
   }
   currentPage.value = id;

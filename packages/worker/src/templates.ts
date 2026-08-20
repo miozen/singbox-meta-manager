@@ -3,7 +3,12 @@ import { getTemplateById, getTemplateList, getTemplateVersionById, getTemplateVe
 const schemaUrl = 'https://sing-box.sagernet.org/schema.json';
 
 async function ensureVersionTable(db: D1Database) {
-  await db.exec(`
+  const existing = await db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'template_versions'"
+  ).first<{ name: string }>();
+  if (existing) return;
+
+  await db.prepare(`
     CREATE TABLE IF NOT EXISTS template_versions (
       id TEXT PRIMARY KEY,
       template_id TEXT NOT NULL,
@@ -12,10 +17,12 @@ async function ensureVersionTable(db: D1Database) {
       version_note TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
-    );
+    )
+  `).run();
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_template_versions_template_id_created_at
-      ON template_versions(template_id, created_at DESC);
-  `);
+    ON template_versions(template_id, created_at DESC)
+  `).run();
 }
 
 async function insertTemplateVersion(
