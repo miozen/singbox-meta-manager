@@ -69,7 +69,7 @@
         <section class="settings-section">
           <div class="section-title">
             <h4>DNS 专用节点组</h4>
-            <p class="muted">固定 tag：📡 dns-out。启用后，模板中 detour 为“🗽 节点选择”的 DNS server 会改走此组。</p>
+            <p class="muted">固定 tag：📡 dns-out。启用且匹配节点时，所有已有 detour 的 DNS server 均走此组；否则回退至“🗽 节点选择”。</p>
           </div>
           <div class="settings-form">
             <label class="check-row">

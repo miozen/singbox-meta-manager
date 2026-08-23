@@ -32,7 +32,7 @@ function clone<T>(value: T): T {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
-function validateTemplate(config: any) {
+function validateTemplate(config: any, options: { skipDnsDetourValidation?: boolean } = {}) {
   if (!config || typeof config !== 'object' || !Array.isArray(config.outbounds)) throw new Error('template_outbounds_required');
   const tags = new Set<string>();
   for (const outbound of config.outbounds) {
@@ -46,8 +46,10 @@ function validateTemplate(config: any) {
       if (!tags.has(tag)) missing.push(`outbound:${outbound.tag}->${tag}`);
     }
   }
-  for (const server of config.dns?.servers || []) {
-    if (server.detour && !tags.has(server.detour)) missing.push(`dns:${server.tag || server.server}->${server.detour}`);
+  if (!options.skipDnsDetourValidation) {
+    for (const server of config.dns?.servers || []) {
+      if (server.detour && !tags.has(server.detour)) missing.push(`dns:${server.tag || server.server}->${server.detour}`);
+    }
   }
   for (const [index, rule] of (config.route?.rules || []).entries()) {
     if (rule.outbound && !tags.has(rule.outbound)) missing.push(`route:${index}->${rule.outbound}`);
@@ -180,10 +182,12 @@ function injectTemplate(template: any, nodes: NodeLike[], groups: NodeLike[], by
     outbound.outbounds = [...new Set(selected)];
     return outbound;
   });
-  if (dnsGroup) {
-    for (const server of config.dns?.servers || []) {
-      if (server.detour === '🗽 节点选择') server.detour = DNS_OUTBOUND_TAG;
-    }
+  const routedDnsServers = (config.dns?.servers || []).filter((server: NodeLike) => Boolean(server.detour));
+  if (routedDnsServers.length && !dnsGroup && !config.outbounds.some((outbound: NodeLike) => outbound.tag === '🗽 节点选择')) {
+    throw new Error('dns_fallback_outbound_missing:🗽 节点选择');
+  }
+  for (const server of routedDnsServers) {
+    server.detour = dnsGroup ? DNS_OUTBOUND_TAG : '🗽 节点选择';
   }
   config.outbounds.push(...groups, ...(dnsGroup ? [dnsGroup] : []), ...nodes);
   cleanReferences(config);
@@ -288,7 +292,7 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
   let template: any;
   try {
     template = JSON.parse(rawTemplate);
-    validateTemplate(template);
+    validateTemplate(template, { skipDnsDetourValidation: true });
   } catch (error) {
     addStep('模板来源', 'error', `客户端绑定模板无效：${error instanceof Error ? error.message : 'template_invalid'}`);
     abort(error instanceof Error ? error.message : 'template_invalid');
@@ -370,18 +374,19 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
   });
 
   const dnsGroup = buildDnsUrltestGroup(nodes, settings);
-  const dnsDetourCount = dnsGroup
-    ? (template.dns?.servers || []).filter((server: NodeLike) => server.detour === '🗽 节点选择').length
-    : 0;
+  const dnsDetourCount = (template.dns?.servers || []).filter((server: NodeLike) => Boolean(server.detour)).length;
   if (!settings.dns_urltest.enabled) {
-    addStep('DNS 专用分组', 'success', '未启用 DNS 专用节点组。');
+    addStep('DNS 专用分组', 'warning', `DNS 专用节点组未启用，${dnsDetourCount} 个 DNS detour 已回退到 🗽 节点选择。`, {
+      fallback_detours: dnsDetourCount
+    });
   } else if (!dnsGroup) {
-    addStep('DNS 专用分组', 'warning', '没有匹配 DNS 关键词的节点，DNS detour 将继续使用 🗽 节点选择。', {
+    addStep('DNS 专用分组', 'warning', `没有匹配 DNS 关键词的节点，${dnsDetourCount} 个 DNS detour 已回退到 🗽 节点选择。`, {
       tag: DNS_OUTBOUND_TAG,
-      keywords: settings.dns_urltest.keywords
+      keywords: settings.dns_urltest.keywords,
+      fallback_detours: dnsDetourCount
     });
   } else {
-    addStep('DNS 专用分组', 'success', `生成 ${DNS_OUTBOUND_TAG}，包含 ${dnsGroup.outbounds.length} 个节点；已调整 ${dnsDetourCount} 个 DNS detour。`, {
+    addStep('DNS 专用分组', 'success', `生成 ${DNS_OUTBOUND_TAG}，包含 ${dnsGroup.outbounds.length} 个节点；已将 ${dnsDetourCount} 个 DNS detour 路由至此组。`, {
       tag: DNS_OUTBOUND_TAG,
       nodes: dnsGroup.outbounds.length,
       detours: dnsDetourCount,
