@@ -424,7 +424,10 @@ app.get('/sub/:id', async (c) => {
   const item = await readTemplate(c.env.SINGBOX_DB, c.req.param('id'));
   if (!item) return c.text('Subscription Not Found', 404);
   try {
-    return c.json(JSON.parse(stripSchema(ensureSchema(item.raw_config))));
+    const config = JSON.parse(stripSchema(ensureSchema(item.raw_config)));
+    return new Response(JSON.stringify(config, null, 2), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
   } catch {
     return c.text('Internal JSON Error', 500);
   }
