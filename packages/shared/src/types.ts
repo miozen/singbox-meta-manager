@@ -109,6 +109,13 @@ export type GenerationSettings = {
     interval: string;
     tolerance: number;
   };
+  dns_urltest: {
+    enabled: boolean;
+    keywords: string[];
+    url: string;
+    interval: string;
+    tolerance: number;
+  };
 };
 
 export type GenerationSettingsPayload = GenerationSettings;

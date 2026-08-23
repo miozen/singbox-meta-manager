@@ -65,6 +65,35 @@
             </label>
           </div>
         </section>
+
+        <section class="settings-section">
+          <div class="section-title">
+            <h4>DNS 专用节点组</h4>
+            <p class="muted">固定 tag：📡 dns-out。启用后，模板中 detour 为“🗽 节点选择”的 DNS server 会改走此组。</p>
+          </div>
+          <div class="settings-form">
+            <label class="check-row">
+              <input :checked="settings.dns_urltest.enabled" type="checkbox" @change="emitDnsEnabled" />
+              <span>启用 DNS 专用节点组</span>
+            </label>
+            <label>
+              <span>节点筛选关键词</span>
+              <textarea :value="dnsKeywordText" rows="4" spellcheck="false" @input="emitDnsKeywords"></textarea>
+            </label>
+            <label>
+              <span>测速 URL</span>
+              <input :value="settings.dns_urltest.url" @input="emitDnsText('url', $event)" />
+            </label>
+            <label>
+              <span>间隔</span>
+              <input :value="settings.dns_urltest.interval" @input="emitDnsText('interval', $event)" />
+            </label>
+            <label>
+              <span>容差</span>
+              <input :value="settings.dns_urltest.tolerance" type="number" min="0" max="5000" step="10" @input="emitDnsNumber('tolerance', $event)" />
+            </label>
+          </div>
+        </section>
       </div>
     </div>
   </section>
@@ -79,6 +108,7 @@ defineProps<{
   saving: boolean;
   settings: GenerationSettings & { updated_at?: string | null };
   keywordText: Record<RegionCode, string>;
+  dnsKeywordText: string;
 }>();
 
 const emit = defineEmits<{
@@ -86,6 +116,8 @@ const emit = defineEmits<{
   'update-keyword': [region: RegionCode, value: string];
   'update-setting': [key: 'banned_pattern' | 'subscription_user_agent' | 'fetch_timeout_ms' | 'max_subscription_bytes', value: string | number];
   'update-urltest': [key: 'url' | 'interval' | 'tolerance', value: string | number];
+  'update-dns-urltest': [key: 'enabled' | 'url' | 'interval' | 'tolerance', value: boolean | string | number];
+  'update-dns-keyword': [value: string];
 }>();
 
 function inputValue(event: Event) {
@@ -103,5 +135,21 @@ function emitNumber(eventName: 'update-setting' | 'update-urltest', key: string,
   const value = Number(inputValue(event));
   if (eventName === 'update-setting') emit('update-setting', key as 'fetch_timeout_ms' | 'max_subscription_bytes', value);
   else emit('update-urltest', key as 'tolerance', value);
+}
+
+function emitDnsEnabled(event: Event) {
+  emit('update-dns-urltest', 'enabled', (event.target as HTMLInputElement).checked);
+}
+
+function emitDnsKeywords(event: Event) {
+  emit('update-dns-keyword', inputValue(event));
+}
+
+function emitDnsText(key: 'url' | 'interval', event: Event) {
+  emit('update-dns-urltest', key, inputValue(event));
+}
+
+function emitDnsNumber(key: 'tolerance', event: Event) {
+  emit('update-dns-urltest', key, Number(inputValue(event)));
 }
 </script>

@@ -1,7 +1,7 @@
 import type { ClientProfileRecord, GenerationSettings, SubscriptionRecord } from '../../shared/src/types';
 import { REGIONS } from '../../shared/src/validators';
 import { readSubscription } from './subscriptions';
-import { readGenerationSettings } from './settings';
+import { DNS_OUTBOUND_TAG, readGenerationSettings } from './settings';
 
 const STRUCTURAL_TYPES = new Set(['selector', 'urltest', 'direct', 'block', 'dns']);
 const FLAGS: Record<string, string> = { HK: '🇭🇰', SG: '🇸🇬', JP: '🇯🇵', US: '🇺🇸', TW: '🇹🇼' };
@@ -117,6 +117,24 @@ function buildRegionalGroups(sources: Source[], settings: GenerationSettings) {
   return { groups, byRegion };
 }
 
+function buildDnsUrltestGroup(nodes: NodeLike[], settings: GenerationSettings) {
+  if (!settings.dns_urltest.enabled) return null;
+  const keywords = settings.dns_urltest.keywords.map((keyword) => keyword.toUpperCase());
+  const outbounds = nodes
+    .filter((node) => keywords.some((keyword) => String(node.tag || '').toUpperCase().includes(keyword)))
+    .map((node) => node.tag);
+  if (!outbounds.length) return null;
+  return {
+    type: 'urltest',
+    tag: DNS_OUTBOUND_TAG,
+    outbounds,
+    url: settings.dns_urltest.url,
+    interval: settings.dns_urltest.interval,
+    tolerance: settings.dns_urltest.tolerance,
+    interrupt_exist_connections: true
+  };
+}
+
 function cleanReferences(config: any) {
   const valid = new Set((config.outbounds || []).map((outbound: NodeLike) => outbound.tag));
   for (const outbound of config.outbounds || []) {
@@ -127,8 +145,14 @@ function cleanReferences(config: any) {
   }
 }
 
-function injectTemplate(template: any, nodes: NodeLike[], groups: NodeLike[], byRegion: Record<string, string[]>, directTag: string, settings: GenerationSettings) {
+function injectTemplate(template: any, nodes: NodeLike[], groups: NodeLike[], byRegion: Record<string, string[]>, directTag: string, settings: GenerationSettings, dnsGroup: NodeLike | null) {
   const config = clone(template);
+  if (dnsGroup && config.outbounds.some((outbound: NodeLike) => outbound.tag === DNS_OUTBOUND_TAG)) {
+    throw new Error(`dns_outbound_tag_conflict:${DNS_OUTBOUND_TAG}`);
+  }
+  if (dnsGroup && nodes.some((node) => node.tag === DNS_OUTBOUND_TAG)) {
+    throw new Error(`dns_node_tag_conflict:${DNS_OUTBOUND_TAG}`);
+  }
   const allRegionalTags = Object.values(byRegion).flat();
   const keywords = Object.values(settings.region_keywords).flat();
   config.outbounds = config.outbounds.map((outbound: NodeLike) => {
@@ -156,7 +180,12 @@ function injectTemplate(template: any, nodes: NodeLike[], groups: NodeLike[], by
     outbound.outbounds = [...new Set(selected)];
     return outbound;
   });
-  config.outbounds.push(...groups, ...nodes);
+  if (dnsGroup) {
+    for (const server of config.dns?.servers || []) {
+      if (server.detour === '🗽 节点选择') server.detour = DNS_OUTBOUND_TAG;
+    }
+  }
+  config.outbounds.push(...groups, ...(dnsGroup ? [dnsGroup] : []), ...nodes);
   cleanReferences(config);
   validateTemplate(config);
   return config;
@@ -271,14 +300,16 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
       fetch_timeout_ms: settings.fetch_timeout_ms,
       max_subscription_bytes: settings.max_subscription_bytes,
       banned_pattern: settings.banned_pattern,
-      urltest: settings.urltest
+      urltest: settings.urltest,
+      dns_urltest: settings.dns_urltest
     }
   });
   addStep('系统设置', 'success', '已读取当前生成设置。', {
     fetch_timeout_ms: settings.fetch_timeout_ms,
     max_subscription_bytes: settings.max_subscription_bytes,
     banned_pattern: settings.banned_pattern,
-    urltest: settings.urltest
+    urltest: settings.urltest,
+    dns_urltest: settings.dns_urltest
   });
   addStep('模板来源', 'success', '已读取客户端绑定模板。', { template_id: profile.template_id, template_name: profile.template_name || profile.template_id });
 
@@ -338,11 +369,31 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
     urltest: settings.urltest
   });
 
+  const dnsGroup = buildDnsUrltestGroup(nodes, settings);
+  const dnsDetourCount = dnsGroup
+    ? (template.dns?.servers || []).filter((server: NodeLike) => server.detour === '🗽 节点选择').length
+    : 0;
+  if (!settings.dns_urltest.enabled) {
+    addStep('DNS 专用分组', 'success', '未启用 DNS 专用节点组。');
+  } else if (!dnsGroup) {
+    addStep('DNS 专用分组', 'warning', '没有匹配 DNS 关键词的节点，DNS detour 将继续使用 🗽 节点选择。', {
+      tag: DNS_OUTBOUND_TAG,
+      keywords: settings.dns_urltest.keywords
+    });
+  } else {
+    addStep('DNS 专用分组', 'success', `生成 ${DNS_OUTBOUND_TAG}，包含 ${dnsGroup.outbounds.length} 个节点；已调整 ${dnsDetourCount} 个 DNS detour。`, {
+      tag: DNS_OUTBOUND_TAG,
+      nodes: dnsGroup.outbounds.length,
+      detours: dnsDetourCount,
+      urltest: settings.dns_urltest
+    });
+  }
+
   const selectorCount = template.outbounds.filter((outbound: NodeLike) => outbound.type === 'selector').length;
   const directTag = template.outbounds.find((outbound: NodeLike) => outbound.type === 'direct')?.tag || '🎯 全球直连';
   let output: Record<string, any>;
   try {
-    output = injectTemplate(template, nodes, groups, byRegion, directTag, settings);
+    output = injectTemplate(template, nodes, groups, byRegion, directTag, settings, dnsGroup);
   } catch (error) {
     addStep('策略注入', 'error', `策略注入失败：${error instanceof Error ? error.message : 'inject_failed'}`, { selectors: selectorCount });
     abort(error instanceof Error ? error.message : 'inject_failed');
@@ -364,6 +415,8 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
       raw_nodes: rawCount,
       nodes: nodes.length,
       groups: groups.length,
+      dns_group_nodes: dnsGroup?.outbounds.length || 0,
+      dns_detours_adjusted: dnsDetourCount,
       selectors: selectorCount,
       outbounds: output.outbounds.length,
       warnings: steps.filter((step) => step.status === 'warning').length,
@@ -372,7 +425,8 @@ export async function generateClientConfig(db: D1Database, profile: ClientProfil
         fetch_timeout_ms: settings.fetch_timeout_ms,
         max_subscription_bytes: settings.max_subscription_bytes,
         banned_pattern: settings.banned_pattern,
-        urltest: settings.urltest
+        urltest: settings.urltest,
+        dns_urltest: settings.dns_urltest
       }
     },
     steps

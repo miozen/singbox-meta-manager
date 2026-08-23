@@ -19,6 +19,7 @@ const emptySettings = (): GenerationSettings & { updated_at?: string | null } =>
   fetch_timeout_ms: 10000,
   max_subscription_bytes: 5000000,
   urltest: { url: '', interval: '', tolerance: 150 },
+  dns_urltest: { enabled: false, keywords: [], url: '', interval: '', tolerance: 150 },
   updated_at: null
 });
 
@@ -27,6 +28,7 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
   const saving = ref(false);
   const settings = ref(emptySettings());
   const keywordText = ref<Record<RegionCode, string>>({ HK: '', TW: '', SG: '', JP: '', US: '' });
+  const dnsKeywordText = ref('');
 
   const applySettings = (next: GenerationSettings & { updated_at?: string | null }) => {
     settings.value = next;
@@ -34,6 +36,7 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
       region,
       (next.region_keywords[region] || []).join('\n')
     ])) as Record<RegionCode, string>;
+    dnsKeywordText.value = (next.dns_urltest.keywords || []).join('\n');
   };
 
   const refresh = async () => {
@@ -62,6 +65,17 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
     };
   };
 
+  const updateDnsUrltest = (key: 'enabled' | 'url' | 'interval' | 'tolerance', value: boolean | string | number) => {
+    settings.value = {
+      ...settings.value,
+      dns_urltest: { ...settings.value.dns_urltest, [key]: value }
+    };
+  };
+
+  const updateDnsKeyword = (value: string) => {
+    dnsKeywordText.value = value;
+  };
+
   const save = async () => {
     if (hooks.ensureAuthed && !(await hooks.ensureAuthed())) return;
     saving.value = true;
@@ -71,7 +85,11 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
         region_keywords: Object.fromEntries(regions.map((region) => [
           region,
           keywordText.value[region].split(/\n|,/).map((item) => item.trim()).filter(Boolean)
-        ])) as Record<RegionCode, string[]>
+        ])) as Record<RegionCode, string[]>,
+        dns_urltest: {
+          ...settings.value.dns_urltest,
+          keywords: dnsKeywordText.value.split(/\n|,/).map((item) => item.trim()).filter(Boolean)
+        }
       };
       applySettings(await updateGenerationSettings(payload));
       hooks.notify?.('系统设置已保存', 'success');
@@ -85,6 +103,7 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
   const reset = () => {
     settings.value = emptySettings();
     keywordText.value = { HK: '', TW: '', SG: '', JP: '', US: '' };
+    dnsKeywordText.value = '';
   };
 
   return {
@@ -93,10 +112,13 @@ export function useGenerationSettingsManager(hooks: Hooks = {}) {
     saving,
     settings,
     keywordText,
+    dnsKeywordText,
     refresh,
     updateKeyword,
     updateSetting,
     updateUrltest,
+    updateDnsUrltest,
+    updateDnsKeyword,
     save,
     reset
   };

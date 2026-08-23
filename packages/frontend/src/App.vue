@@ -152,10 +152,13 @@
           :saving="settingsSaving"
           :settings="generationSettings"
           :keyword-text="generationKeywordText"
+          :dns-keyword-text="dnsKeywordText"
           @save="saveGenerationSettings"
           @update-keyword="updateGenerationKeyword"
           @update-setting="updateGenerationSetting"
           @update-urltest="updateGenerationUrltest"
+          @update-dns-urltest="updateDnsUrltest"
+          @update-dns-keyword="updateDnsKeyword"
         />
       </section>
     </section>
@@ -371,10 +374,13 @@ const {
   saving: settingsSaving,
   settings: generationSettings,
   keywordText: generationKeywordText,
+  dnsKeywordText,
   refresh: refreshGenerationSettings,
   updateKeyword: updateGenerationKeyword,
   updateSetting: updateGenerationSetting,
   updateUrltest: updateGenerationUrltest,
+  updateDnsUrltest,
+  updateDnsKeyword,
   save: saveGenerationSettings
 } = settingsManager;
 

@@ -2,6 +2,7 @@ import type { GenerationSettings, GenerationSettingsPayload, RegionCode } from '
 import { REGIONS, isSafeHttpUrl } from '../../shared/src/validators';
 
 const GENERATION_SETTINGS_KEY = 'generation';
+export const DNS_OUTBOUND_TAG = '📡 dns-out';
 
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   region_keywords: {
@@ -16,6 +17,13 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   fetch_timeout_ms: 10000,
   max_subscription_bytes: 5000000,
   urltest: {
+    url: 'https://www.gstatic.com/generate_204',
+    interval: '3m',
+    tolerance: 150
+  },
+  dns_urltest: {
+    enabled: false,
+    keywords: ['HK', 'HKG', 'Hong Kong', '香港'],
     url: 'https://www.gstatic.com/generate_204',
     interval: '3m',
     tolerance: 150
@@ -72,6 +80,8 @@ export function normalizeGenerationSettings(input: Partial<GenerationSettingsPay
   ])) as Record<RegionCode, string[]>;
   const url = String(input.urltest?.url || DEFAULT_GENERATION_SETTINGS.urltest.url).trim();
   const interval = String(input.urltest?.interval || DEFAULT_GENERATION_SETTINGS.urltest.interval).trim();
+  const dnsUrl = String(input.dns_urltest?.url || DEFAULT_GENERATION_SETTINGS.dns_urltest.url).trim();
+  const dnsInterval = String(input.dns_urltest?.interval || DEFAULT_GENERATION_SETTINGS.dns_urltest.interval).trim();
   const userAgent = String(input.subscription_user_agent || DEFAULT_GENERATION_SETTINGS.subscription_user_agent).trim();
 
   return {
@@ -84,6 +94,13 @@ export function normalizeGenerationSettings(input: Partial<GenerationSettingsPay
       url: isSafeHttpUrl(url) ? url : DEFAULT_GENERATION_SETTINGS.urltest.url,
       interval: interval.slice(0, 20) || DEFAULT_GENERATION_SETTINGS.urltest.interval,
       tolerance: boundedInteger(input.urltest?.tolerance, DEFAULT_GENERATION_SETTINGS.urltest.tolerance, 0, 5000)
+    },
+    dns_urltest: {
+      enabled: input.dns_urltest?.enabled === true,
+      keywords: uniqueStrings(input.dns_urltest?.keywords, DEFAULT_GENERATION_SETTINGS.dns_urltest.keywords),
+      url: isSafeHttpUrl(dnsUrl) ? dnsUrl : DEFAULT_GENERATION_SETTINGS.dns_urltest.url,
+      interval: dnsInterval.slice(0, 20) || DEFAULT_GENERATION_SETTINGS.dns_urltest.interval,
+      tolerance: boundedInteger(input.dns_urltest?.tolerance, DEFAULT_GENERATION_SETTINGS.dns_urltest.tolerance, 0, 5000)
     }
   };
 }
