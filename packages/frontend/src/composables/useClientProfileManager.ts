@@ -206,6 +206,7 @@ export function useClientProfileManager(hooks: Hooks = {}) {
 
 
   const loadGenerationRuns = async (profile: ClientProfileRecord) => {
+    if (hooks.ensureAuthed && !(await hooks.ensureAuthed())) return;
     generationRunLoadingIds.value = { ...generationRunLoadingIds.value, [profile.id]: true };
     try {
       generationRuns.value = {

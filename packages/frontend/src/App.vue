@@ -91,6 +91,7 @@
           @delete="deleteClientProfileItem"
           @toggle="toggleClientProfileItem"
           @copy-link="copyClientProfileLink"
+          @load-generation-runs="loadClientProfileGenerationRuns"
           @reset-token="resetClientProfileTokenItem"
           @test-generation="testClientProfileGenerationItem"
           @toggle-generation-report="toggleClientProfileGenerationReport"
@@ -353,6 +354,7 @@ const {
   toggle: toggleClientProfileItem,
   resetToken: resetClientProfileTokenItem,
   copyLink: copyClientProfileLink,
+  loadGenerationRuns: loadClientProfileGenerationRuns,
   testGeneration: testClientProfileGenerationItem,
   toggleGenerationReport: toggleClientProfileGenerationReport,
   toggleBinding: toggleClientProfileBinding
@@ -611,9 +613,16 @@ nav button.active { box-shadow: inset 3px 0 var(--cyan); }
 .generation-report.error, .test-report.error { border-color: #6c3038; background: #27151a; color: #fecaca; }
 .generation-steps, .run-history, .run-list { display: grid; gap: 8px; }
 .generation-steps article, .run-list article { padding: 9px; }
-.run-history { margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, .22); }
+.run-history { grid-column: 1 / -1; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, .22); }
+.run-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.run-summary small { min-width: 0; color: var(--muted); }
+.run-summary b { color: var(--cyan); font-size: 12px; }
+.run-details { display: grid; gap: 8px; margin-top: 9px; }
 .run-list em { width: fit-content; color: #fbbf24; font-style: normal; font-size: 12px; }
 .run-list p { margin: 0; color: #fecaca; font-size: 12px; }
+.qr-modal { width: min(420px, 100%); }
+.qr-preview { display: grid; place-items: center; min-height: 300px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.qr-preview img { display: block; width: min(300px, 100%); height: auto; image-rendering: pixelated; }
 
 .settings-section { display: grid; gap: 12px; padding: 14px; }
 .region-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }

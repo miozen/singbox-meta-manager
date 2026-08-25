@@ -45,6 +45,10 @@
             </label>
             <div class="actions">
               <button class="ghost" @click="$emit('copy-link', profile)">复制地址</button>
+              <button class="ghost" @click="openQr(profile)">二维码</button>
+              <button class="ghost" @click="toggleRunHistory(profile)">
+                {{ expandedRunIds[profile.id] ? '收起记录' : '拉取记录' }}
+              </button>
               <button class="ghost" :disabled="Boolean(generationTestingIds[profile.id])" @click="$emit('test-generation', profile)">
                 {{ generationTestingIds[profile.id] ? '生成中...' : '测试生成' }}
               </button>
@@ -64,7 +68,7 @@
           <div v-if="generationReports[profile.id]?.expanded" class="generation-report" :class="{ error: !generationReports[profile.id].success }">
             <div class="report-heading">
               <strong>{{ generationReports[profile.id].success ? '生成成功' : '生成失败' }}</strong>
-              <small>{{ generationReports[profile.id].tested_at }}</small>
+              <small>{{ formatBeijingTime(generationReports[profile.id].tested_at) }}</small>
             </div>
             <div class="chips">
               <span v-for="item in summaryItems(generationReports[profile.id].summary)" :key="item.key">{{ item.key }} {{ item.value }}</span>
@@ -76,25 +80,47 @@
               </article>
             </div>
             <p v-if="generationReports[profile.id].error">{{ generationReports[profile.id].error }}</p>
-            <div class="run-history">
-              <div class="report-heading">
-                <strong>最近生成记录</strong>
-                <small v-if="generationRunLoadingIds[profile.id]">加载中...</small>
-              </div>
-              <div v-if="generationRuns[profile.id]?.length" class="run-list">
-                <article v-for="run in generationRuns[profile.id]" :key="run.id" :class="run.status">
-                  <span>{{ runStatusLabel(run.status) }}</span>
-                  <small>{{ run.trigger_type }} / {{ run.duration_ms }}ms / {{ run.created_at || '-' }}</small>
-                  <em v-if="run.used_cache">使用缓存</em>
-                  <p v-if="run.error">{{ run.error }}</p>
-                </article>
-              </div>
-              <p v-else class="muted">暂无生成记录</p>
-            </div>
           </div>
+
+          <section v-if="expandedRunIds[profile.id]" class="run-history">
+            <div class="report-heading">
+              <strong>最近拉取记录</strong>
+              <small v-if="generationRunLoadingIds[profile.id]">加载中...</small>
+            </div>
+            <div v-if="generationRuns[profile.id]?.length" class="run-list">
+              <article v-for="run in generationRuns[profile.id]" :key="run.id" :class="run.status">
+                <button type="button" class="run-summary" @click="toggleRunDetails(run.id)">
+                  <span>{{ runStatusLabel(run.status) }}</span>
+                  <small>{{ triggerTypeLabel(run.trigger_type) }} / {{ run.duration_ms }}ms / {{ formatBeijingTime(run.created_at) }}</small>
+                  <em v-if="run.used_cache">使用缓存</em>
+                  <b>{{ expandedRunDetails[run.id] ? '收起' : '展开' }}</b>
+                </button>
+                <div v-if="expandedRunDetails[run.id]" class="run-details">
+                  <div v-if="summaryItems(run.summary).length" class="chips">
+                    <span v-for="item in summaryItems(run.summary)" :key="item.key">{{ item.key }} {{ item.value }}</span>
+                  </div>
+                  <div v-if="run.steps.length" class="generation-steps">
+                    <article v-for="step in run.steps" :key="step.name" :class="step.status">
+                      <strong>{{ step.name }}</strong>
+                      <span>{{ step.message }}</span>
+                    </article>
+                  </div>
+                  <p v-if="run.error">{{ run.error }}</p>
+                </div>
+              </article>
+            </div>
+            <p v-else-if="!generationRunLoadingIds[profile.id]" class="muted">暂无拉取记录</p>
+          </section>
         </article>
       </div>
     </div>
+
+    <SubscriptionQrDialog
+      :open="Boolean(qrProfile)"
+      :name="qrProfile?.name || ''"
+      :value="qrProfile ? subscriptionLink(qrProfile) : ''"
+      @close="qrProfile = null"
+    />
 
     <div v-if="modalOpen" class="modal-backdrop" @click.self="$emit('close-modal')">
       <form class="modal client-modal" @submit.prevent="$emit('save')">
@@ -148,8 +174,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { ClientProfileRecord, GenerationRunRecord, GenerationTestResult, SubscriptionRecord, TemplateListItem } from '@shared/types';
+import SubscriptionQrDialog from './SubscriptionQrDialog.vue';
 
 type BindingForm = {
   subscription_id: string;
@@ -188,6 +215,7 @@ const emit = defineEmits<{
   delete: [profile: ClientProfileRecord];
   toggle: [profile: ClientProfileRecord];
   'copy-link': [profile: ClientProfileRecord];
+  'load-generation-runs': [profile: ClientProfileRecord];
   'reset-token': [profile: ClientProfileRecord];
   'test-generation': [profile: ClientProfileRecord];
   'toggle-generation-report': [profile: ClientProfileRecord];
@@ -198,6 +226,9 @@ const emit = defineEmits<{
 }>();
 
 const origin = window.location.origin;
+const qrProfile = ref<ClientProfileRecord | null>(null);
+const expandedRunIds = ref<Record<string, boolean>>({});
+const expandedRunDetails = ref<Record<string, boolean>>({});
 const orderedSubscriptions = computed(() => {
   const order = new Map(props.form.subscriptions.map((binding, index) => [binding.subscription_id, index]));
   return [...props.subscriptions].sort((a, b) => {
@@ -218,6 +249,45 @@ function runStatusLabel(status: GenerationRunRecord['status']) {
   if (status === 'success') return '成功';
   if (status === 'fallback') return '回退';
   return '失败';
+}
+
+function triggerTypeLabel(triggerType: GenerationRunRecord['trigger_type']) {
+  return triggerType === 'public' ? '客户端拉取' : '手动测试';
+}
+
+function subscriptionLink(profile: ClientProfileRecord) {
+  return `${origin}/sub/client/${profile.public_token}`;
+}
+
+function openQr(profile: ClientProfileRecord) {
+  qrProfile.value = profile;
+}
+
+function toggleRunHistory(profile: ClientProfileRecord) {
+  const expanded = !expandedRunIds.value[profile.id];
+  expandedRunIds.value = { ...expandedRunIds.value, [profile.id]: expanded };
+  if (expanded) emit('load-generation-runs', profile);
+}
+
+function toggleRunDetails(runId: string) {
+  expandedRunDetails.value = { ...expandedRunDetails.value, [runId]: !expandedRunDetails.value[runId] };
+}
+
+function formatBeijingTime(value?: string) {
+  if (!value) return '-';
+  const normalized = /(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value.replace(' ', 'T')}Z`;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
 }
 
 
