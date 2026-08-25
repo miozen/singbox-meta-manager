@@ -118,7 +118,8 @@
     <SubscriptionQrDialog
       :open="Boolean(qrProfile)"
       :name="qrProfile?.name || ''"
-      :value="qrProfile ? subscriptionLink(qrProfile) : ''"
+      :subscription-url="qrProfile ? subscriptionLink(qrProfile) : ''"
+      :qr-value="qrProfile ? remoteProfileImportLink(qrProfile) : ''"
       @close="qrProfile = null"
     />
 
@@ -257,6 +258,10 @@ function triggerTypeLabel(triggerType: GenerationRunRecord['trigger_type']) {
 
 function subscriptionLink(profile: ClientProfileRecord) {
   return `${origin}/sub/client/${profile.public_token}`;
+}
+
+function remoteProfileImportLink(profile: ClientProfileRecord) {
+  return `sing-box://import-remote-profile?url=${encodeURIComponent(subscriptionLink(profile))}#${encodeURIComponent(profile.name)}`;
 }
 
 function openQr(profile: ClientProfileRecord) {

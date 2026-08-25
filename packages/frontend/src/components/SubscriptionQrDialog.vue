@@ -13,8 +13,8 @@
         <img v-if="imageUrl" :src="imageUrl" :alt="`${name} 的客户端订阅二维码`" />
         <span v-else>二维码生成中...</span>
       </div>
-      <code>{{ value }}</code>
-      <p class="muted">二维码仅包含此客户端订阅地址；请妥善保管，重置 token 后旧二维码将失效。</p>
+      <code>{{ subscriptionUrl }}</code>
+      <p class="muted">二维码使用 sing-box 官方远程配置导入格式；请妥善保管，重置 token 后旧二维码将失效。</p>
 
       <div class="modal-actions">
         <button type="button" class="ghost" @click="copyLink">复制地址</button>
@@ -31,7 +31,8 @@ import { ref, watch } from 'vue';
 const props = defineProps<{
   open: boolean;
   name: string;
-  value: string;
+  subscriptionUrl: string;
+  qrValue: string;
 }>();
 
 defineEmits<{ close: [] }>();
@@ -39,7 +40,7 @@ defineEmits<{ close: [] }>();
 const imageUrl = ref('');
 
 watch(
-  () => [props.open, props.value] as const,
+  () => [props.open, props.qrValue] as const,
   async ([open, value]) => {
     if (!open || !value) {
       imageUrl.value = '';
@@ -54,6 +55,6 @@ watch(
 );
 
 async function copyLink() {
-  await navigator.clipboard.writeText(props.value);
+  await navigator.clipboard.writeText(props.subscriptionUrl);
 }
 </script>
